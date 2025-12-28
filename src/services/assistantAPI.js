@@ -44,6 +44,13 @@ class AssistantService {
         await this.initializeThread();
       }
 
+      // 確認 threadId 已設置
+      if (!this.threadId) {
+        throw new Error('Thread ID 未正確初始化');
+      }
+
+      console.log('使用 Thread ID:', this.threadId);
+
       // 1. 將使用者訊息加入 Thread
       await this.client.beta.threads.messages.create(this.threadId, {
         role: 'user',
@@ -55,12 +62,14 @@ class AssistantService {
         assistant_id: this.assistantId
       });
 
-      // 3. 等待執行完成
-      const completedRun = await this.waitForRunCompletion(run.id);
+      console.log('Run 已建立:', run.id);
+
+      // 3. 等待執行完成（傳入 threadId 確保不會丟失）
+      const completedRun = await this.waitForRunCompletion(this.threadId, run.id);
 
       // 4. 檢查執行狀態
       if (completedRun.status === 'failed') {
-        throw new Error('Assistant 執行失敗');
+        throw new Error(`Assistant 執行失敗: ${completedRun.last_error?.message || '未知錯誤'}`);
       }
 
       // 5. 取得 Assistant 的回覆
@@ -97,22 +106,30 @@ class AssistantService {
 
   /**
    * 等待 Run 執行完成
+   * @param {string} threadId - Thread ID（明確傳入避免 this 丟失）
+   * @param {string} runId - Run ID
    */
-  async waitForRunCompletion(runId, maxAttempts = 30) {
+  async waitForRunCompletion(threadId, runId, maxAttempts = 30) {
     let attempts = 0;
+
+    console.log(`等待 Run 完成... Thread: ${threadId}, Run: ${runId}`);
 
     while (attempts < maxAttempts) {
       const run = await this.client.beta.threads.runs.retrieve(
-        this.threadId,
+        threadId,
         runId
       );
 
+      console.log(`Run 狀態: ${run.status} (嘗試 ${attempts + 1}/${maxAttempts})`);
+
       if (run.status === 'completed') {
+        console.log('✅ Run 執行完成');
         return run;
       }
 
       if (run.status === 'failed' || run.status === 'cancelled' || run.status === 'expired') {
-        throw new Error(`Run 狀態異常: ${run.status}`);
+        const errorMsg = run.last_error?.message || run.status;
+        throw new Error(`Run 狀態異常: ${errorMsg}`);
       }
 
       // 等待 1 秒後再檢查
@@ -120,7 +137,7 @@ class AssistantService {
       attempts++;
     }
 
-    throw new Error('Run 執行逾時');
+    throw new Error('Run 執行逾時（超過 30 秒）');
   }
 
   /**
