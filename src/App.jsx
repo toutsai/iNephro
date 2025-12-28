@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import Doctor3D from './Doctor3D';
 import AssistantService from './services/assistantAPI';
+import OpenAI from 'openai';
 import ReactMarkdown from 'react-markdown';
 
 // --- 1. 固定精選主題 (有圖) ---
@@ -165,8 +166,6 @@ function App() {
       else {
         console.log('💬 使用一般 ChatGPT API（通用模式）');
 
-        // 動態載入 OpenAI（避免未使用時的 import 錯誤）
-        const OpenAI = (await import('openai')).default;
         const openai = new OpenAI({ apiKey: OPENAI_KEY, dangerouslyAllowBrowser: true });
 
         let systemPrompt = `
