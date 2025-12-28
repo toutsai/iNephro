@@ -140,74 +140,84 @@ function App() {
       // 🔵 模式 1: Assistants API（知識庫模式）
       // ========================================
       if (useAssistantAPI && assistantServiceRef.current) {
-        console.log('📚 使用 Assistants API（知識庫檢索模式）');
+        console.log('📚 嘗試使用 Assistants API（知識庫檢索模式）');
 
-        const result = await assistantServiceRef.current.sendMessage(userPrompt);
-        const { reply, confidence, sources } = result;
+        try {
+          const result = await assistantServiceRef.current.sendMessage(userPrompt);
+          const { reply, confidence, sources } = result;
 
-        // 根據信心度處理回覆
-        let finalReply = reply;
+          // 根據信心度處理回覆
+          let finalReply = reply;
 
-        if (confidence === 'low') {
-          // 信心度低 - 建議轉人工
-          finalReply = `${reply}\n\n💡 **提示**：這個問題比較複雜，建議您諮詢專業醫師獲得更準確的建議。`;
-        } else if (confidence === 'high' && sources.length > 0) {
-          // 高信心度 - 顯示有引用來源
-          finalReply = `${reply}\n\n✓ *此回答基於專業知識庫*`;
+          if (confidence === 'low') {
+            // 信心度低 - 建議轉人工
+            finalReply = `${reply}\n\n💡 **提示**：這個問題比較複雜，建議您諮詢專業醫師獲得更準確的建議。`;
+          } else if (confidence === 'high' && sources.length > 0) {
+            // 高信心度 - 顯示有引用來源
+            finalReply = `${reply}\n\n✓ *此回答基於專業知識庫*`;
+          }
+
+          setMessages(prev => [...prev, { role: 'doctor', text: finalReply, confidence }]);
+          speak(finalReply);
+
+          console.log('✅ Assistants API 回答成功');
+          return; // 成功就結束
+
+        } catch (assistantError) {
+          // ⚠️ Assistants API 失敗 - 降級到一般模式
+          console.error('❌ Assistants API 失敗，自動切換到一般 ChatGPT 模式:', assistantError);
+          console.log('🔄 降級到一般 ChatGPT API...');
+
+          // 繼續執行下面的一般模式（不要 return）
         }
-
-        setMessages(prev => [...prev, { role: 'doctor', text: finalReply, confidence }]);
-        speak(finalReply);
-
       }
+
       // ========================================
-      // 🟢 模式 2: 一般 ChatGPT API（通用模式）
+      // 🟢 模式 2: 一般 ChatGPT API（通用模式 / 降級模式）
       // ========================================
-      else {
-        console.log('💬 使用一般 ChatGPT API（通用模式）');
+      console.log('💬 使用一般 ChatGPT API（通用模式）');
 
-        const openai = new OpenAI({ apiKey: OPENAI_KEY, dangerouslyAllowBrowser: true });
+      const openai = new OpenAI({ apiKey: OPENAI_KEY, dangerouslyAllowBrowser: true });
 
-        let systemPrompt = `
-          你是一位台灣腎臟科醫師 iNephro。
+      let systemPrompt = `
+        你是一位台灣腎臟科醫師 iNephro。
 
-          【回答規範】
-          1. 針對問題解說，字數約 80-100 字。
-          2. 語氣專業溫暖，繁體中文。
-          3. 關鍵字標示：請務必將「醫學名詞」、「數據」、「食物名稱」用 **粗體** 包起來。
+        【回答規範】
+        1. 針對問題解說，字數約 80-100 字。
+        2. 語氣專業溫暖，繁體中文。
+        3. 關鍵字標示：請務必將「醫學名詞」、「數據」、「食物名稱」用 **粗體** 包起來。
 
-          【格式嚴格要求】
-          回答結束後，請加上 "///" 符號，接著列出 3 個簡短的建議選項，用 "|" 符號隔開。
-          ⚠️ 禁止寫 "1. 2. 3." 編號。
-          ⚠️ 禁止寫 "後續建議：" 這種前言。
+        【格式嚴格要求】
+        回答結束後，請加上 "///" 符號，接著列出 3 個簡短的建議選項，用 "|" 符號隔開。
+        ⚠️ 禁止寫 "1. 2. 3." 編號。
+        ⚠️ 禁止寫 "後續建議：" 這種前言。
 
-          正確範例：
-          ...以上是我的說明。/// 什麼是AKI? | 飲食要注意什麼? | 需要洗腎嗎?
-        `;
+        正確範例：
+        ...以上是我的說明。/// 什麼是AKI? | 飲食要注意什麼? | 需要洗腎嗎?
+      `;
 
-        if (contextImage) {
-          systemPrompt += `\n目前畫面上顯示了一張衛教圖片，請呼應圖片內容。`;
-        }
-
-        const MAX_HISTORY_MESSAGES = 20;
-        const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES);
-
-        const completion = await openai.chat.completions.create({
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...recentMessages.map(m => ({
-              role: m.role === 'doctor' ? 'assistant' : 'user',
-              content: m.text.split('///')[0]
-            })),
-            { role: "user", content: userPrompt }
-          ],
-          model: "gpt-4o-mini",
-        });
-
-        const reply = completion.choices[0].message.content;
-        setMessages(prev => [...prev, { role: 'doctor', text: reply }]);
-        speak(reply);
+      if (contextImage) {
+        systemPrompt += `\n目前畫面上顯示了一張衛教圖片，請呼應圖片內容。`;
       }
+
+      const MAX_HISTORY_MESSAGES = 20;
+      const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES);
+
+      const completion = await openai.chat.completions.create({
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...recentMessages.map(m => ({
+            role: m.role === 'doctor' ? 'assistant' : 'user',
+            content: m.text.split('///')[0]
+          })),
+          { role: "user", content: userPrompt }
+        ],
+        model: "gpt-4o-mini",
+      });
+
+      const reply = completion.choices[0].message.content;
+      setMessages(prev => [...prev, { role: 'doctor', text: reply }]);
+      speak(reply);
 
     } catch (error) {
       console.error('AI 呼叫錯誤:', error);
