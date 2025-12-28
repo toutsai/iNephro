@@ -62,11 +62,11 @@ const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
 
   // --- 初始化與隨機邏輯 ---
   
-  // 隨機抽籤函式
-  const refreshTopics = () => {
+  // ★★★ 關鍵修改：用 useCallback 包起來 ★★★
+  const refreshTopics = React.useCallback(() => {
     const shuffled = [...KEYWORD_POOL].sort(() => 0.5 - Math.random());
-    setRandomTopics(shuffled.slice(0, 6)); // 取前 6 個
-  };
+    setRandomTopics(shuffled.slice(0, 6)); 
+  }, []); // 尾巴這個 [] 代表它永遠不會變
 
   // 一進來就先抽一次
   useEffect(() => {

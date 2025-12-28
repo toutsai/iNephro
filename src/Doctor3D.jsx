@@ -1,5 +1,5 @@
-// src/Doctor3D.jsx - 嘴型優化版 (配合 Zhiwei 語速)
-import React, { useRef, useEffect, useState } from "react";
+// src/Doctor3D.jsx - 修復 ESLint 錯誤版 (使用 useRef)
+import React, { useRef, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Environment, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
@@ -7,14 +7,21 @@ import * as THREE from "three";
 function DoctorModel({ isSpeaking }) {
   const { scene } = useGLTF("/doctor.glb");
   const ref = useRef();
-  const [faceMesh, setFaceMesh] = useState(null);
-  const [teethMesh, setTeethMesh] = useState(null);
+  
+  // ★★★ 關鍵修改：改用 useRef 來存模型引用，而不是 useState ★★★
+  // useRef 的內容是可以被直接修改的，不會被 ESLint 罵
+  const faceMeshRef = useRef(null);
+  const teethMeshRef = useRef(null);
 
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh && child.morphTargetDictionary) {
-        if (child.name === 'Wolf3D_Head') setFaceMesh(child);
-        if (child.name === 'Wolf3D_Teeth') setTeethMesh(child);
+        if (child.name === 'Wolf3D_Head') {
+          faceMeshRef.current = child; // 存入 Ref
+        }
+        if (child.name === 'Wolf3D_Teeth') {
+          teethMeshRef.current = child; // 存入 Ref
+        }
       }
     });
   }, [scene]);
@@ -26,35 +33,37 @@ function DoctorModel({ isSpeaking }) {
       ref.current.position.y = BASE_Y + Math.sin(state.clock.elapsedTime) * 0.05;
     }
 
-    // --- 說話動畫參數調整區 ---
+    // --- 說話動畫 ---
     if (isSpeaking) {
-      // 1. 速度 (Frequency): 從 20 改成 12 -> 變慢，比較穩重
-      // 2. 幅度 (Amplitude): 從 0.25 改成 0.55 -> 嘴巴張大一點，看比較清楚
-      // 3. 隨機感 (Random): 加一點點隨機變化，才不會像機械
       const t = state.clock.elapsedTime;
       const talkValue = (Math.abs(Math.sin(t * 12)) * 0.55) + (Math.random() * 0.1);
 
-      if (faceMesh) {
-        const idx = faceMesh.morphTargetDictionary['mouthOpen'];
-        if (idx !== undefined) faceMesh.morphTargetInfluences[idx] = talkValue;
+      // ★★★ 這裡改成讀取 Ref.current ★★★
+      if (faceMeshRef.current) {
+        const idx = faceMeshRef.current.morphTargetDictionary['mouthOpen'];
+        if (idx !== undefined) faceMeshRef.current.morphTargetInfluences[idx] = talkValue;
       }
-      if (teethMesh) {
-        const idx = teethMesh.morphTargetDictionary['mouthOpen'];
-        if (idx !== undefined) teethMesh.morphTargetInfluences[idx] = talkValue;
+      if (teethMeshRef.current) {
+        const idx = teethMeshRef.current.morphTargetDictionary['mouthOpen'];
+        if (idx !== undefined) teethMeshRef.current.morphTargetInfluences[idx] = talkValue;
       }
 
     } else {
-      // 閉嘴時的速度
-      if (faceMesh) {
-        const idx = faceMesh.morphTargetDictionary['mouthOpen'];
+      // 閉嘴動畫
+      if (faceMeshRef.current) {
+        const idx = faceMeshRef.current.morphTargetDictionary['mouthOpen'];
         if (idx !== undefined) {
-          faceMesh.morphTargetInfluences[idx] = THREE.MathUtils.lerp(faceMesh.morphTargetInfluences[idx], 0, 0.15);
+          faceMeshRef.current.morphTargetInfluences[idx] = THREE.MathUtils.lerp(
+            faceMeshRef.current.morphTargetInfluences[idx], 0, 0.15
+          );
         }
       }
-      if (teethMesh) {
-        const idx = teethMesh.morphTargetDictionary['mouthOpen'];
+      if (teethMeshRef.current) {
+        const idx = teethMeshRef.current.morphTargetDictionary['mouthOpen'];
         if (idx !== undefined) {
-          teethMesh.morphTargetInfluences[idx] = THREE.MathUtils.lerp(teethMesh.morphTargetInfluences[idx], 0, 0.15);
+          teethMeshRef.current.morphTargetInfluences[idx] = THREE.MathUtils.lerp(
+            teethMeshRef.current.morphTargetInfluences[idx], 0, 0.15
+          );
         }
       }
     }
