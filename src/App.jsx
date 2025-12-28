@@ -1,8 +1,8 @@
-// src/App.jsx - 最終完整版 (圖文衛教 + 隨機關鍵字 + 語音互動)
+// src/App.jsx - Assistants API 版本 (知識庫 RAG + 信心度檢測)
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import Doctor3D from './Doctor3D';
-import OpenAI from 'openai';
+import AssistantService from './services/assistantAPI';
 import ReactMarkdown from 'react-markdown';
 
 // --- 1. 固定精選主題 (有圖) ---
@@ -42,16 +42,17 @@ const KEYWORD_POOL = [
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=1000&auto=format&fit=crop";
 
 function App() {
-// 從環境變數讀取 Key (如果在本地端沒有設定，就讀取空字串)
-const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || ""; 
+  // 從環境變數讀取設定
+  const OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
+  const ASSISTANT_ID = import.meta.env.VITE_ASSISTANT_ID || "";
 
   // --- State ---
   const [activeCategory, setActiveCategory] = useState('home');
   const [randomTopics, setRandomTopics] = useState([]); // 存隨機選出的字
   const [messages, setMessages] = useState([
-    { 
-      role: 'doctor', 
-      text: '您好，我是 iNephro 智能醫師。您可以點選左側主題，或直接問我問題。',
+    {
+      role: 'doctor',
+      text: '您好，我是 iNephro 智能醫師。我會根據專業的腎臟科知識庫為您解答。您可以點選左側主題，或直接問我問題。\n\n⚠️ 本系統為衛教輔助工具，非醫療診斷服務。所有資訊僅供參考，請遵循您的主治醫師建議。',
     }
   ]);
   const [input, setInput] = useState('');
@@ -59,6 +60,8 @@ const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
   const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef(null);
   const [selectedVoice, setSelectedVoice] = useState(null);
+  const [useAssistantAPI, setUseAssistantAPI] = useState(false); // 是否使用 Assistants API
+  const assistantServiceRef = useRef(null); // Assistant 服務實例
 
   // --- 初始化與隨機邏輯 ---
   
@@ -72,6 +75,24 @@ const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
   useEffect(() => {
     refreshTopics();
   }, []);
+
+  // ✅ 初始化 Assistants API
+  useEffect(() => {
+    // 檢查是否有設定 Assistant ID
+    if (OPENAI_KEY && ASSISTANT_ID && ASSISTANT_ID.startsWith('asst_')) {
+      try {
+        assistantServiceRef.current = new AssistantService(OPENAI_KEY, ASSISTANT_ID);
+        setUseAssistantAPI(true);
+        console.log('✅ Assistants API 已啟用（知識庫模式）');
+      } catch (error) {
+        console.error('❌ Assistants API 初始化失敗，將使用一般模式:', error);
+        setUseAssistantAPI(false);
+      }
+    } else {
+      console.log('ℹ️ 未設定 Assistant ID，使用一般 ChatGPT 模式');
+      setUseAssistantAPI(false);
+    }
+  }, [OPENAI_KEY, ASSISTANT_ID]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -106,7 +127,7 @@ const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
   };
 
   const callAI = async (userPrompt, contextImage = null) => {
-    if (!DANGER_OPENAI_KEY.startsWith("sk-")) {
+    if (!OPENAI_KEY.startsWith("sk-")) {
       const errorMsg = "請先設定 OpenAI API Key 才能使用對話功能。";
       setMessages(prev => [...prev, { role: 'doctor', text: errorMsg }]);
       speak(errorMsg);
@@ -114,57 +135,86 @@ const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
     }
 
     try {
-      const openai = new OpenAI({ apiKey: DANGER_OPENAI_KEY, dangerouslyAllowBrowser: true });
+      // ========================================
+      // 🔵 模式 1: Assistants API（知識庫模式）
+      // ========================================
+      if (useAssistantAPI && assistantServiceRef.current) {
+        console.log('📚 使用 Assistants API（知識庫檢索模式）');
 
-      let systemPrompt = `
-        你是一位台灣腎臟科醫師 iNephro。
+        const result = await assistantServiceRef.current.sendMessage(userPrompt);
+        const { reply, confidence, sources } = result;
 
-        【回答規範】
-        1. 針對問題解說，字數約 80-100 字。
-        2. 語氣專業溫暖，繁體中文。
-        3. 關鍵字標示：請務必將「醫學名詞」、「數據」、「食物名稱」用 **粗體** 包起來。
+        // 根據信心度處理回覆
+        let finalReply = reply;
 
-        【格式嚴格要求】
-        回答結束後，請加上 "///" 符號，接著列出 3 個簡短的建議選項，用 "|" 符號隔開。
-        ⚠️ 禁止寫 "1. 2. 3." 編號。
-        ⚠️ 禁止寫 "後續建議：" 這種前言。
+        if (confidence === 'low') {
+          // 信心度低 - 建議轉人工
+          finalReply = `${reply}\n\n💡 **提示**：這個問題比較複雜，建議您諮詢專業醫師獲得更準確的建議。`;
+        } else if (confidence === 'high' && sources.length > 0) {
+          // 高信心度 - 顯示有引用來源
+          finalReply = `${reply}\n\n✓ *此回答基於專業知識庫*`;
+        }
 
-        正確範例：
-        ...以上是我的說明。/// 什麼是AKI? | 飲食要注意什麼? | 需要洗腎嗎?
-      `;
+        setMessages(prev => [...prev, { role: 'doctor', text: finalReply, confidence }]);
+        speak(finalReply);
 
-      if (contextImage) {
-        systemPrompt += `\n目前畫面上顯示了一張衛教圖片，請呼應圖片內容。`;
+      }
+      // ========================================
+      // 🟢 模式 2: 一般 ChatGPT API（通用模式）
+      // ========================================
+      else {
+        console.log('💬 使用一般 ChatGPT API（通用模式）');
+
+        // 動態載入 OpenAI（避免未使用時的 import 錯誤）
+        const OpenAI = (await import('openai')).default;
+        const openai = new OpenAI({ apiKey: OPENAI_KEY, dangerouslyAllowBrowser: true });
+
+        let systemPrompt = `
+          你是一位台灣腎臟科醫師 iNephro。
+
+          【回答規範】
+          1. 針對問題解說，字數約 80-100 字。
+          2. 語氣專業溫暖，繁體中文。
+          3. 關鍵字標示：請務必將「醫學名詞」、「數據」、「食物名稱」用 **粗體** 包起來。
+
+          【格式嚴格要求】
+          回答結束後，請加上 "///" 符號，接著列出 3 個簡短的建議選項，用 "|" 符號隔開。
+          ⚠️ 禁止寫 "1. 2. 3." 編號。
+          ⚠️ 禁止寫 "後續建議：" 這種前言。
+
+          正確範例：
+          ...以上是我的說明。/// 什麼是AKI? | 飲食要注意什麼? | 需要洗腎嗎?
+        `;
+
+        if (contextImage) {
+          systemPrompt += `\n目前畫面上顯示了一張衛教圖片，請呼應圖片內容。`;
+        }
+
+        const MAX_HISTORY_MESSAGES = 20;
+        const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES);
+
+        const completion = await openai.chat.completions.create({
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...recentMessages.map(m => ({
+              role: m.role === 'doctor' ? 'assistant' : 'user',
+              content: m.text.split('///')[0]
+            })),
+            { role: "user", content: userPrompt }
+          ],
+          model: "gpt-4o-mini",
+        });
+
+        const reply = completion.choices[0].message.content;
+        setMessages(prev => [...prev, { role: 'doctor', text: reply }]);
+        speak(reply);
       }
 
-      // ✅ 改進 1: 限制對話歷史，只保留最近 10 輪對話（20 則訊息）
-      // 避免超過 API token 限制，並且保持對話上下文的相關性
-      const MAX_HISTORY_MESSAGES = 20;
-      const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES);
-
-      const completion = await openai.chat.completions.create({
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...recentMessages.map(m => ({
-            role: m.role === 'doctor' ? 'assistant' : 'user',
-            content: m.text.split('///')[0] // 只傳送文字內容，不包含建議選項
-          })),
-          { role: "user", content: userPrompt }
-        ],
-        model: "gpt-4o-mini",
-      });
-
-      const reply = completion.choices[0].message.content;
-      setMessages(prev => [...prev, { role: 'doctor', text: reply }]);
-      speak(reply);
-
     } catch (error) {
-      // ✅ 改進 2: 完整的錯誤處理
       console.error('AI 呼叫錯誤:', error);
 
       let errorMessage = "抱歉，系統發生錯誤。";
 
-      // 根據不同錯誤類型提供更具體的訊息
       if (error.message?.includes('API key')) {
         errorMessage = "API Key 無效，請檢查您的設定。";
       } else if (error.message?.includes('quota') || error.message?.includes('rate_limit')) {
