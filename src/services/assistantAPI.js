@@ -137,10 +137,11 @@ class AssistantService {
 
     while (attempts < maxAttempts) {
       try {
-        // OpenAI SDK 的參數順序是：runId 在前，threadId 在後
+        // 正確的參數順序：threadId 在前，runId 在後
+        // REST API 路徑：GET /threads/{thread_id}/runs/{run_id}
         const run = await this.client.beta.threads.runs.retrieve(
-          runId,
-          threadId
+          threadId,  // 第一個參數
+          runId      // 第二個參數
         );
 
         console.log(`   狀態: ${run.status} (${attempts + 1}/${maxAttempts})`);
