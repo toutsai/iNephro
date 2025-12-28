@@ -9,17 +9,17 @@ import ReactMarkdown from 'react-markdown';
 const TOPIC_DATA = {
   'aki': {
     title: '急性腎損傷 (AKI)',
-    image: null, 
+    image: 'https://images.unsplash.com/photo-1579154204601-01588f351e67?q=80&w=1000&auto=format&fit=crop',
     prompt: '請簡單介紹急性腎損傷(AKI)的定義與常見原因。'
   },
   'ckd': {
     title: '慢性腎臟病 (CKD)',
-    image: null,
+    image: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?q=80&w=1000&auto=format&fit=crop',
     prompt: '請說明慢性腎臟病(CKD)的五個分期是什麼？'
   },
-  'electrolytes': { 
+  'electrolytes': {
     title: '電解質不平衡',
-    image: null, 
+    image: 'https://images.unsplash.com/photo-1584362917165-526a968579e8?q=80&w=1000&auto=format&fit=crop',
     prompt: '請說明常見的電解質不平衡症狀。'
   }
 };
@@ -106,24 +106,29 @@ const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
   };
 
   const callAI = async (userPrompt, contextImage = null) => {
-    if (!DANGER_OPENAI_KEY.startsWith("sk-")) return speak("請設定 API Key");
+    if (!DANGER_OPENAI_KEY.startsWith("sk-")) {
+      const errorMsg = "請先設定 OpenAI API Key 才能使用對話功能。";
+      setMessages(prev => [...prev, { role: 'doctor', text: errorMsg }]);
+      speak(errorMsg);
+      return;
+    }
 
     try {
       const openai = new OpenAI({ apiKey: DANGER_OPENAI_KEY, dangerouslyAllowBrowser: true });
-      
+
       let systemPrompt = `
         你是一位台灣腎臟科醫師 iNephro。
-        
+
         【回答規範】
         1. 針對問題解說，字數約 80-100 字。
         2. 語氣專業溫暖，繁體中文。
         3. 關鍵字標示：請務必將「醫學名詞」、「數據」、「食物名稱」用 **粗體** 包起來。
-        
+
         【格式嚴格要求】
         回答結束後，請加上 "///" 符號，接著列出 3 個簡短的建議選項，用 "|" 符號隔開。
         ⚠️ 禁止寫 "1. 2. 3." 編號。
         ⚠️ 禁止寫 "後續建議：" 這種前言。
-        
+
         正確範例：
         ...以上是我的說明。/// 什麼是AKI? | 飲食要注意什麼? | 需要洗腎嗎?
       `;
@@ -132,10 +137,18 @@ const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
         systemPrompt += `\n目前畫面上顯示了一張衛教圖片，請呼應圖片內容。`;
       }
 
+      // ✅ 改進 1: 限制對話歷史，只保留最近 10 輪對話（20 則訊息）
+      // 避免超過 API token 限制，並且保持對話上下文的相關性
+      const MAX_HISTORY_MESSAGES = 20;
+      const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES);
+
       const completion = await openai.chat.completions.create({
         messages: [
           { role: "system", content: systemPrompt },
-          ...messages.map(m => ({ role: m.role === 'doctor' ? 'assistant' : 'user', content: m.text })),
+          ...recentMessages.map(m => ({
+            role: m.role === 'doctor' ? 'assistant' : 'user',
+            content: m.text.split('///')[0] // 只傳送文字內容，不包含建議選項
+          })),
           { role: "user", content: userPrompt }
         ],
         model: "gpt-4o-mini",
@@ -146,7 +159,26 @@ const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
       speak(reply);
 
     } catch (error) {
-      console.error(error);
+      // ✅ 改進 2: 完整的錯誤處理
+      console.error('AI 呼叫錯誤:', error);
+
+      let errorMessage = "抱歉，系統發生錯誤。";
+
+      // 根據不同錯誤類型提供更具體的訊息
+      if (error.message?.includes('API key')) {
+        errorMessage = "API Key 無效，請檢查您的設定。";
+      } else if (error.message?.includes('quota') || error.message?.includes('rate_limit')) {
+        errorMessage = "API 使用額度已達上限，請稍後再試或檢查您的 OpenAI 帳戶。";
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = "網路連線錯誤，請檢查您的網路連線。";
+      } else if (error.status === 429) {
+        errorMessage = "請求過於頻繁，請稍後再試。";
+      } else if (error.status === 401) {
+        errorMessage = "API Key 驗證失敗，請確認 API Key 是否正確。";
+      }
+
+      setMessages(prev => [...prev, { role: 'doctor', text: errorMessage }]);
+      speak(errorMessage);
     }
   };
 
