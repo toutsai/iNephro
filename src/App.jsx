@@ -42,8 +42,8 @@ const KEYWORD_POOL = [
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=1000&auto=format&fit=crop";
 
 function App() {
-  // ★ 您的 API Key
-  const DANGER_OPENAI_KEY = "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"; 
+// 從環境變數讀取 Key (如果在本地端沒有設定，就讀取空字串)
+const DANGER_OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || ""; 
 
   // --- State ---
   const [activeCategory, setActiveCategory] = useState('home');
