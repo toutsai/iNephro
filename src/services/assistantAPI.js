@@ -137,13 +137,26 @@ class AssistantService {
 
     while (attempts < maxAttempts) {
       try {
-        // 正確的參數順序：threadId 在前，runId 在後
-        // REST API 路徑：GET /threads/{thread_id}/runs/{run_id}
-        const run = await this.client.beta.threads.runs.retrieve(
-          threadId,  // 第一個參數
-          runId      // 第二個參數
-        );
+        // 🔧 使用原生 fetch 直接調用 OpenAI REST API
+        // 避免 SDK 在瀏覽器環境中的參數順序問題
+        const apiUrl = `https://api.openai.com/v1/threads/${threadId}/runs/${runId}`;
+        console.log(`   📡 直接調用 REST API: ${apiUrl}`);
 
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${this.client.apiKey}`,
+            'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v2'
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`API 請求失敗 (${response.status}): ${JSON.stringify(errorData)}`);
+        }
+
+        const run = await response.json();
         console.log(`   狀態: ${run.status} (${attempts + 1}/${maxAttempts})`);
 
         if (run.status === 'completed') {
