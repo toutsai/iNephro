@@ -1,9 +1,7 @@
-// src/App.jsx - Assistants API 版本 (知識庫 RAG + 信心度檢測)
+// src/App.jsx - Edge Function 版本（雲端快取 + AI）
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import Doctor3D from './Doctor3D';
-import AssistantService from './services/assistantAPI';
-import OpenAI from 'openai';
 import ReactMarkdown from 'react-markdown';
 
 // --- 1. 固定精選主題 (有圖) ---
@@ -38,10 +36,6 @@ const KEYWORD_POOL = [
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=1000&auto=format&fit=crop";
 
 function App() {
-  // 從環境變數讀取設定
-  const OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
-  const ASSISTANT_ID = import.meta.env.VITE_ASSISTANT_ID || "";
-
   // --- State ---
   const [activeCategory, setActiveCategory] = useState('home');
   const [randomTopics, setRandomTopics] = useState([]); // 存隨機選出的字
@@ -56,8 +50,6 @@ function App() {
   const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef(null);
   const [selectedVoice, setSelectedVoice] = useState(null);
-  const [useAssistantAPI, setUseAssistantAPI] = useState(false); // 是否使用 Assistants API
-  const assistantServiceRef = useRef(null); // Assistant 服務實例
   const [isDoctorMinimized, setIsDoctorMinimized] = useState(false); // 行動版醫師是否縮小
 
   // --- 初始化與隨機邏輯 ---
@@ -71,25 +63,7 @@ function App() {
   // 一進來就先抽一次
   useEffect(() => {
     refreshTopics();
-  }, []);
-
-  // ✅ 初始化 Assistants API
-  useEffect(() => {
-    // 檢查是否有設定 Assistant ID
-    if (OPENAI_KEY && ASSISTANT_ID && ASSISTANT_ID.startsWith('asst_')) {
-      try {
-        assistantServiceRef.current = new AssistantService(OPENAI_KEY, ASSISTANT_ID);
-        setUseAssistantAPI(true);
-        console.log('✅ Assistants API 已啟用（知識庫模式）');
-      } catch (error) {
-        console.error('❌ Assistants API 初始化失敗，將使用一般模式:', error);
-        setUseAssistantAPI(false);
-      }
-    } else {
-      console.log('ℹ️ 未設定 Assistant ID，使用一般 ChatGPT 模式');
-      setUseAssistantAPI(false);
-    }
-  }, [OPENAI_KEY, ASSISTANT_ID]);
+  }, [refreshTopics]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -293,11 +267,7 @@ function App() {
     setIsDoctorSpeaking(false);
 
     // 顯示「思考中」訊息
-    const thinkingMessage = useAssistantAPI
-      ? '🔍 正在查詢知識庫...'
-      : '🤔 思考中...';
-
-    setMessages(prev => [...prev, { role: 'doctor', text: thinkingMessage, isThinking: true }]);
+    setMessages(prev => [...prev, { role: 'doctor', text: '🔍 正在查詢知識庫...', isThinking: true }]);
 
     // 直接調用 AI，在 callAI 內部會移除思考提示
     callAI(question);
@@ -323,11 +293,7 @@ function App() {
     }
 
     // 顯示「思考中」訊息（不顯示圖片）
-    const thinkingMessage = useAssistantAPI
-      ? '🔍 正在查詢知識庫...'
-      : '🤔 思考中...';
-
-    setMessages(prev => [...prev, { role: 'doctor', text: thinkingMessage, isThinking: true }]);
+    setMessages(prev => [...prev, { role: 'doctor', text: '🔍 正在查詢知識庫...', isThinking: true }]);
 
     // 直接調用 AI，在 callAI 內部會移除思考提示
     callAI(prompt);
