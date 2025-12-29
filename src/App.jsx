@@ -184,17 +184,14 @@ function App() {
       setMessages(prev => prev.filter(msg => !msg.isThinking));
     };
 
-    // === 快取機制 ===
+    // === 第一層快取：localStorage（最快，0ms）===
     const CACHE_KEY_PREFIX = 'inephro_cache_';
     const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7天過期
 
-    // 生成快取鍵（使用完整 prompt 的 base64）
     const getCacheKey = (prompt) => {
-      // 移除 .slice(0, 50) - 這會導致不同問題產生相同的快取鍵！
       return CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt));
     };
 
-    // 檢查快取
     const cacheKey = getCacheKey(userPrompt);
     try {
       const cached = localStorage.getItem(cacheKey);
@@ -203,137 +200,66 @@ function App() {
         const age = Date.now() - timestamp;
 
         if (age < CACHE_EXPIRY) {
-          // 快取有效，直接使用
-          console.log('✅ 使用快取回應');
+          console.log('⚡ localStorage 快取命中（0ms）');
           removeThinkingMessage();
           setMessages(prev => [...prev, { role: 'doctor', text: reply, confidence }]);
           speak(reply);
           return;
         } else {
-          // 快取過期，移除
           localStorage.removeItem(cacheKey);
         }
       }
     } catch (e) {
-      console.warn('讀取快取失敗:', e);
-    }
-    // === 快取機制結束 ===
-
-    if (!OPENAI_KEY.startsWith("sk-")) {
-      removeThinkingMessage();
-      const errorMsg = "請先設定 OpenAI API Key 才能使用對話功能。";
-      setMessages(prev => [...prev, { role: 'doctor', text: errorMsg }]);
-      speak(errorMsg);
-      return;
+      console.warn('讀取 localStorage 快取失敗:', e);
     }
 
+    // === 第二層：雲端 Edge Function（快取 + AI）===
     try {
-      // ========================================
-      // 🔵 模式 1: Assistants API（知識庫模式）
-      // ========================================
-      if (useAssistantAPI && assistantServiceRef.current) {
-        console.log('📚 嘗試使用 Assistants API（知識庫檢索模式）');
+      console.log('🌐 調用 Edge Function（雲端快取 + AI）');
+      const startTime = Date.now();
 
-        try {
-          const result = await assistantServiceRef.current.sendMessage(userPrompt);
-          const { reply, confidence, sources } = result;
-
-          // 根據信心度處理回覆
-          let finalReply = reply;
-
-          if (confidence === 'low') {
-            // 信心度低 - 建議轉人工
-            finalReply = `💡 **提示**：這個問題比較複雜，建議您諮詢專業醫師獲得更準確的建議。\n\n${reply}`;
-          } else if (confidence === 'high' && sources.length > 0) {
-            // 高信心度 - 顯示有引用來源（標記放在最前面）
-            finalReply = `✓ *此回答基於專業知識庫*\n\n${reply}`;
-          }
-
-          removeThinkingMessage();
-          setMessages(prev => [...prev, { role: 'doctor', text: finalReply, confidence }]);
-          speak(finalReply);
-
-          // 存入快取
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify({
-              reply: finalReply,
-              confidence,
-              timestamp: Date.now()
-            }));
-          } catch (e) {
-            console.warn('快取存儲失敗:', e);
-          }
-
-          console.log('✅ Assistants API 回答成功');
-          return; // 成功就結束
-
-        } catch (assistantError) {
-          // ⚠️ Assistants API 失敗 - 降級到一般模式
-          console.error('❌ Assistants API 失敗，自動切換到一般 ChatGPT 模式:', assistantError);
-          console.log('🔄 降級到一般 ChatGPT API...');
-
-          // 繼續執行下面的一般模式（不要 return）
-        }
-      }
-
-      // ========================================
-      // 🟢 模式 2: 一般 ChatGPT API（通用模式 / 降級模式）
-      // ========================================
-      console.log('💬 使用一般 ChatGPT API（通用模式）');
-
-      const openai = new OpenAI({ apiKey: OPENAI_KEY, dangerouslyAllowBrowser: true });
-
-      let systemPrompt = `
-        你是一位台灣腎臟科醫師 iNephro。
-
-        【回答規範】
-        1. 針對問題解說，字數約 80-100 字。
-        2. 語氣專業溫暖，繁體中文。
-        3. 關鍵字標示：請務必將「醫學名詞」、「數據」、「食物名稱」用 **粗體** 包起來。
-
-        【格式嚴格要求】
-        回答結束後，請加上 "///" 符號，接著列出 3 個簡短的建議選項，用 "|" 符號隔開。
-        ⚠️ 禁止寫 "1. 2. 3." 編號。
-        ⚠️ 禁止寫 "後續建議：" 這種前言。
-
-        正確範例：
-        ...以上是我的說明。/// 什麼是AKI? | 飲食要注意什麼? | 需要洗腎嗎?
-      `;
-
-      if (contextImage) {
-        systemPrompt += `\n目前畫面上顯示了一張衛教圖片，請呼應圖片內容。`;
-      }
-
-      const MAX_HISTORY_MESSAGES = 20;
-      const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES);
-
-      const completion = await openai.chat.completions.create({
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...recentMessages.map(m => ({
-            role: m.role === 'doctor' ? 'assistant' : 'user',
-            content: m.text.split('///')[0]
-          })),
-          { role: "user", content: userPrompt }
-        ],
-        model: "gpt-4o-mini",
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question: userPrompt
+        })
       });
 
-      const reply = completion.choices[0].message.content;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const responseTime = Date.now() - startTime;
+
+      if (data.fromCache) {
+        console.log(`✅ 雲端快取命中！(${responseTime}ms, 快取年齡: ${data.cacheAge}秒)`);
+      } else {
+        console.log(`✅ API 調用成功 (${responseTime}ms)`);
+      }
+
+      const { reply, confidence } = data;
+
       removeThinkingMessage();
-      setMessages(prev => [...prev, { role: 'doctor', text: reply }]);
+      setMessages(prev => [...prev, { role: 'doctor', text: reply, confidence }]);
       speak(reply);
 
-      // 存入快取
+      // 存入 localStorage 作為第一層快取
       try {
         localStorage.setItem(cacheKey, JSON.stringify({
           reply,
-          confidence: 'medium',
+          confidence,
           timestamp: Date.now()
         }));
       } catch (e) {
-        console.warn('快取存儲失敗:', e);
+        console.warn('localStorage 存儲失敗:', e);
       }
+
+      return;
 
     } catch (error) {
       console.error('AI 呼叫錯誤:', error);
