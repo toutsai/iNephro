@@ -395,7 +395,12 @@ function App() {
     if (rawText === '...') return { content: '...', suggestions: [] };
 
     const parts = rawText.split('///');
-    const content = parts[0].trim();
+    let content = parts[0].trim();
+
+    // 過濾來源標記【4:5†source】【4:1†source】等
+    content = content.replace(/【[^】]*source[^】]*】/g, '');
+    content = content.replace(/\[[^\]]*source[^\]]*\]/g, '');
+
     let suggestions = [];
 
     if (parts[1]) {
