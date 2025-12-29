@@ -1,13 +1,76 @@
-// api/chat.js - Vercel Edge Function with KV Cache
+// api/chat.js - Vercel Edge Function with Upstash Redis Cache
 // 雲端快取層，大幅提升速度並降低 API 成本
 
-import { kv } from '@vercel/kv';
 import OpenAI from 'openai';
 
 // Edge Runtime 配置
 export const config = {
   runtime: 'edge',
 };
+
+/**
+ * Upstash Redis REST API Helper
+ */
+class UpstashCache {
+  constructor(url, token) {
+    this.url = url;
+    this.token = token;
+  }
+
+  async get(key) {
+    try {
+      const response = await fetch(`${this.url}/get/${key}`, {
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Upstash GET failed:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      // Upstash 回傳 { result: "..." } 或 { result: null }
+      if (data.result === null) {
+        return null;
+      }
+
+      // 解析 JSON 字串
+      return JSON.parse(data.result);
+    } catch (error) {
+      console.error('Upstash GET error:', error);
+      return null;
+    }
+  }
+
+  async set(key, value, ttl = 604800) {
+    try {
+      // 將值序列化為 JSON
+      const jsonValue = JSON.stringify(value);
+
+      // 使用 SETEX 命令（SET with EXpire）
+      const response = await fetch(`${this.url}/setex/${key}/${ttl}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(jsonValue),
+      });
+
+      if (!response.ok) {
+        console.error('Upstash SET failed:', response.status);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Upstash SET error:', error);
+      return false;
+    }
+  }
+}
 
 /**
  * 生成快取鍵（使用 SHA-256 hash）
@@ -143,7 +206,19 @@ export default async function handler(request) {
   }
 
   try {
-    // 1. 解析請求
+    // 1. 初始化 Upstash Redis
+    const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
+    const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    if (!UPSTASH_URL || !UPSTASH_TOKEN) {
+      console.warn('⚠️ Upstash 未設定，快取功能將被停用');
+    }
+
+    const cache = (UPSTASH_URL && UPSTASH_TOKEN)
+      ? new UpstashCache(UPSTASH_URL, UPSTASH_TOKEN)
+      : null;
+
+    // 2. 解析請求
     const { question } = await request.json();
 
     if (!question || typeof question !== 'string') {
@@ -153,12 +228,15 @@ export default async function handler(request) {
       );
     }
 
-    // 2. 生成快取鍵
+    // 3. 生成快取鍵
     const cacheKey = await generateCacheKey(question);
     console.log(`🔍 查詢快取: ${cacheKey}`);
 
-    // 3. 檢查快取
-    const cached = await kv.get(cacheKey);
+    // 4. 檢查快取（如果已設定）
+    let cached = null;
+    if (cache) {
+      cached = await cache.get(cacheKey);
+    }
 
     if (cached) {
       console.log('✅ 快取命中！');
@@ -181,7 +259,7 @@ export default async function handler(request) {
 
     console.log('❌ 快取未命中，調用 API');
 
-    // 4. 從環境變數取得設定
+    // 5. 從環境變數取得設定
     const OPENAI_KEY = process.env.VITE_OPENAI_KEY;
     const ASSISTANT_ID = process.env.VITE_ASSISTANT_ID;
 
@@ -189,7 +267,7 @@ export default async function handler(request) {
       throw new Error('OpenAI API Key not configured');
     }
 
-    // 5. 調用 AI（優先 Assistants API，失敗則降級）
+    // 6. 調用 AI（優先 Assistants API，失敗則降級）
     let result;
 
     try {
@@ -209,17 +287,21 @@ export default async function handler(request) {
       result = await fallbackToChatGPT(question, OPENAI_KEY);
     }
 
-    // 6. 存入快取（7 天過期）
+    // 7. 存入快取（7 天過期，604800 秒）
     const cacheData = {
       ...result,
       timestamp: Date.now(),
       question // 保留原始問題，方便管理
     };
 
-    await kv.set(cacheKey, cacheData, { ex: 7 * 24 * 60 * 60 });
-    console.log('💾 已存入快取');
+    if (cache) {
+      await cache.set(cacheKey, cacheData, 7 * 24 * 60 * 60);
+      console.log('💾 已存入快取');
+    } else {
+      console.log('⚠️ 快取未啟用，跳過快取存儲');
+    }
 
-    // 7. 回傳結果
+    // 8. 回傳結果
     return new Response(
       JSON.stringify({ ...result, fromCache: false }),
       {

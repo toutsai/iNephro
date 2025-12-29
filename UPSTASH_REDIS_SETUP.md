@@ -1,4 +1,4 @@
-# Vercel KV 雲端快取設定指南
+# Upstash Redis 雲端快取設定指南
 
 ## 🎯 為什麼需要雲端快取？
 
@@ -15,35 +15,44 @@
 
 ## 📝 設定步驟
 
-### 步驟 1：在 Vercel Dashboard 建立 KV 資料庫
+### 步驟 1：註冊 Upstash 並建立 Redis 資料庫
 
-1. 前往 [Vercel Dashboard](https://vercel.com/dashboard)
-2. 選擇您的專案 `iNephro`
-3. 點擊 **Storage** 標籤
-4. 點擊 **Create Database**
-5. 選擇 **KV**
-6. 輸入資料庫名稱：`inephro-cache`
-7. 選擇區域：**Singapore** 或最接近您用戶的區域
-8. 點擊 **Create**
+1. 前往 [Upstash Console](https://console.upstash.com/)
+2. 使用 **GitHub** 或 **Email** 註冊/登入
+3. 點擊 **Create Database**
+4. 填寫資訊：
+   - **Name**: `inephro-cache`
+   - **Type**: **Regional** (速度較快) 或 **Global** (容錯較好)
+   - **Region**: 選擇 **ap-southeast-1** (Singapore，最接近台灣)
+5. 點擊 **Create**
 
-### 步驟 2：連接 KV 到專案
+### 步驟 2：複製連線資訊
 
-Vercel 會自動將以下環境變數加入您的專案：
-- `KV_REST_API_URL`
-- `KV_REST_API_TOKEN`
-- `KV_REST_API_READ_ONLY_TOKEN`
-- `KV_URL`
+建立完成後，在 Database 頁面找到：
 
-**這些會自動設定，不需要手動操作！**
+**REST API** 區塊（滾動到下方）：
+- `UPSTASH_REDIS_REST_URL`: 類似 `https://xxx.upstash.io`
+- `UPSTASH_REDIS_REST_TOKEN`: 一串長的 token
 
-### 步驟 3：設定 OpenAI 環境變數
+**請複製這兩個值！**
+
+### 步驟 3：在 Vercel 設定環境變數
 
 在 Vercel Dashboard 的 **Settings → Environment Variables** 加入：
 
-```
-VITE_OPENAI_KEY = sk-your-key-here
+```bash
+# OpenAI 設定（如果還沒加）
+VITE_OPENAI_KEY = sk-your-openai-key-here
 VITE_ASSISTANT_ID = asst_your-assistant-id
+
+# Upstash Redis 設定（從步驟 2 複製）
+UPSTASH_REDIS_REST_URL = https://xxx.upstash.io
+UPSTASH_REDIS_REST_TOKEN = AaaaXXXX...your-token
 ```
+
+**重要提醒：**
+- 所有環境變數都選擇 **All Environments** (Production, Preview, Development)
+- 點擊 **Save** 儲存
 
 ### 步驟 4：重新部署
 
@@ -90,18 +99,28 @@ X-Cache: HIT
 ## 🔍 監控與管理
 
 ### 查看快取使用狀況
-1. 前往 Vercel Dashboard
-2. 選擇 Storage → `inephro-cache`
+1. 前往 [Upstash Console](https://console.upstash.com/)
+2. 選擇您的資料庫 `inephro-cache`
 3. 可以看到：
-   - 快取數量
-   - 儲存空間使用
-   - 請求次數
+   - **Dashboard**: 請求數量、延遲、命中率
+   - **Data Browser**: 查看所有快取鍵值
+   - **Metrics**: 詳細的使用統計
 
 ### 手動清除快取
-在 KV Dashboard 中可以：
-- 查看所有快取鍵（格式：`qa:xxxxx`）
-- 刪除特定快取
-- 清空所有快取
+
+**方法 1：透過 Data Browser**
+1. 在 Upstash Console 進入 **Data Browser**
+2. 搜尋快取鍵（格式：`qa:xxxxx`）
+3. 點擊 ❌ 刪除特定快取
+
+**方法 2：使用 Redis CLI**
+```bash
+# 刪除單個快取
+redis-cli -u <your-redis-url> DEL qa:xxxxx
+
+# 清空所有快取
+redis-cli -u <your-redis-url> FLUSHDB
+```
 
 ### 查看快取內容
 快取格式：
@@ -117,12 +136,12 @@ X-Cache: HIT
 
 ## 💰 免費額度
 
-Vercel KV 免費方案包含：
+Upstash Redis 免費方案包含：
+- **10,000 次指令/天**（比 Vercel KV 的 3,000 次還多！）
 - **256MB** 儲存空間
-- **30,000 次**指令/月
-- **3,000 次**請求/天
+- **無限制的資料庫數量**
 
-對於您的規模**完全足夠**！
+對於您的規模**綽綽有餘**！
 
 ## 🚨 常見問題
 
@@ -131,14 +150,22 @@ A: 256MB 可以存儲約 **10,000 筆**問答（每筆約 25KB），不太可能
 
 ### Q: 部署後看不到加速效果？
 A:
-1. 檢查 Console 是否有錯誤
-2. 確認 Network 標籤中 `/api/chat` 有正確回傳
-3. 檢查 Response Headers 是否有 `X-Cache: HIT` 或 `MISS`
+1. 檢查 Vercel 環境變數是否正確設定
+2. 查看 Vercel 部署日誌，確認沒有錯誤
+3. 開啟瀏覽器 Console (F12)，看是否有錯誤訊息
+4. 確認 Network 標籤中 `/api/chat` 有正確回傳
+5. 檢查 Response Headers 是否有 `X-Cache: HIT` 或 `MISS`
+
+### Q: 如何確認 Upstash 連線成功？
+A: 查看 Vercel 部署日誌：
+- ✅ 成功：不會出現「Upstash 未設定」警告
+- ❌ 失敗：會看到「⚠️ Upstash 未設定，快取功能將被停用」
 
 ### Q: 如何強制重新查詢（不用快取）？
 A: 目前快取是自動的。如需強制更新，可以：
 1. 清除瀏覽器 localStorage
-2. 在 Vercel KV Dashboard 刪除該快取鍵
+2. 在 Upstash Console → Data Browser 刪除該快取鍵
+3. 或使用 Redis CLI: `redis-cli -u <url> DEL qa:xxxxx`
 
 ## 📈 預期效果
 
