@@ -79,20 +79,26 @@ function DoctorModel({ isSpeaking }) {
   );
 }
 
-export default function Doctor3D({ isSpeaking }) {
+export default function Doctor3D({ isSpeaking, onStopSpeaking }) {
   return (
-    <Canvas camera={{ position: [0, 0.5, 6.5], fov: 25 }}>
-      <ambientLight intensity={2} />
-      <Environment preset="city" />
-      <DoctorModel isSpeaking={isSpeaking} />
-      <ContactShadows opacity={0.4} scale={10} blur={2.5} far={4} position={[0, -5.4, 0]} /> 
-      <OrbitControls 
-        enableZoom={false} 
-        minPolarAngle={Math.PI/2.2} 
-        maxPolarAngle={Math.PI/1.8}
-        minAzimuthAngle={-Math.PI / 4}
-        maxAzimuthAngle={Math.PI / 4}
-      />
-    </Canvas>
+    <div
+      onClick={onStopSpeaking}
+      style={{ width: '100%', height: '100%', cursor: isSpeaking ? 'pointer' : 'default' }}
+      title={isSpeaking ? '點擊停止說話' : ''}
+    >
+      <Canvas camera={{ position: [0, 0.5, 6.5], fov: 25 }}>
+        <ambientLight intensity={2} />
+        <Environment preset="city" />
+        <DoctorModel isSpeaking={isSpeaking} />
+        <ContactShadows opacity={0.4} scale={10} blur={2.5} far={4} position={[0, -5.4, 0]} />
+        <OrbitControls
+          enableZoom={false}
+          minPolarAngle={Math.PI/2.2}
+          maxPolarAngle={Math.PI/1.8}
+          minAzimuthAngle={-Math.PI / 4}
+          maxAzimuthAngle={Math.PI / 4}
+        />
+      </Canvas>
+    </div>
   );
 }
