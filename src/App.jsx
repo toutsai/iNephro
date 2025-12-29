@@ -53,6 +53,11 @@ function App() {
   const [availableVoices, setAvailableVoices] = useState([]); // 所有可用語音
   const [isDoctorMinimized, setIsDoctorMinimized] = useState(false); // 行動版醫師是否縮小
 
+  // TTS 模式：browser（瀏覽器原生）或 google-cloud（台灣國語）
+  const [ttsMode, setTtsMode] = useState('browser');
+  const [googleVoice, setGoogleVoice] = useState('tw-male-1'); // Google Cloud TTS 語音
+  const audioRef = useRef(null); // 用於播放雲端 TTS 音訊
+
   // --- 初始化與隨機邏輯 ---
   
   // ★★★ 關鍵修改：用 useCallback 包起來 ★★★
