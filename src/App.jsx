@@ -142,7 +142,47 @@ function App() {
   };
 
   const callAI = async (userPrompt, contextImage = null) => {
+    // 移除思考提示（在實際回應前）
+    const removeThinkingMessage = () => {
+      setMessages(prev => prev.filter(msg => !msg.isThinking));
+    };
+
+    // === 快取機制 ===
+    const CACHE_KEY_PREFIX = 'inephro_cache_';
+    const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7天過期
+
+    // 生成快取鍵（使用 prompt 的 hash）
+    const getCacheKey = (prompt) => {
+      return CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt)).slice(0, 50);
+    };
+
+    // 檢查快取
+    const cacheKey = getCacheKey(userPrompt);
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { reply, timestamp, confidence } = JSON.parse(cached);
+        const age = Date.now() - timestamp;
+
+        if (age < CACHE_EXPIRY) {
+          // 快取有效，直接使用
+          console.log('✅ 使用快取回應');
+          removeThinkingMessage();
+          setMessages(prev => [...prev, { role: 'doctor', text: reply, confidence }]);
+          speak(reply);
+          return;
+        } else {
+          // 快取過期，移除
+          localStorage.removeItem(cacheKey);
+        }
+      }
+    } catch (e) {
+      console.warn('讀取快取失敗:', e);
+    }
+    // === 快取機制結束 ===
+
     if (!OPENAI_KEY.startsWith("sk-")) {
+      removeThinkingMessage();
       const errorMsg = "請先設定 OpenAI API Key 才能使用對話功能。";
       setMessages(prev => [...prev, { role: 'doctor', text: errorMsg }]);
       speak(errorMsg);
@@ -171,8 +211,20 @@ function App() {
             finalReply = `${reply}\n\n✓ *此回答基於專業知識庫*`;
           }
 
+          removeThinkingMessage();
           setMessages(prev => [...prev, { role: 'doctor', text: finalReply, confidence }]);
           speak(finalReply);
+
+          // 存入快取
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({
+              reply: finalReply,
+              confidence,
+              timestamp: Date.now()
+            }));
+          } catch (e) {
+            console.warn('快取存儲失敗:', e);
+          }
 
           console.log('✅ Assistants API 回答成功');
           return; // 成功就結束
@@ -230,11 +282,24 @@ function App() {
       });
 
       const reply = completion.choices[0].message.content;
+      removeThinkingMessage();
       setMessages(prev => [...prev, { role: 'doctor', text: reply }]);
       speak(reply);
 
+      // 存入快取
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          reply,
+          confidence: 'medium',
+          timestamp: Date.now()
+        }));
+      } catch (e) {
+        console.warn('快取存儲失敗:', e);
+      }
+
     } catch (error) {
       console.error('AI 呼叫錯誤:', error);
+      removeThinkingMessage();
 
       let errorMessage = "抱歉，系統發生錯誤。";
 
@@ -270,10 +335,8 @@ function App() {
 
     setMessages(prev => [...prev, { role: 'doctor', text: thinkingMessage, isThinking: true }]);
 
-    setTimeout(() => {
-      setMessages(prev => prev.slice(0, -1)); // 移除「思考中」訊息
-      callAI(question);
-    }, 300);
+    // 直接調用 AI，在 callAI 內部會移除思考提示
+    callAI(question);
   };
 
   // ★★★ 修改後的選單點擊處理 (整合隨機功能) ★★★
@@ -281,7 +344,6 @@ function App() {
     setActiveCategory(keyOrKeyword);
 
     let title = "";
-    let image = "";
     let prompt = "";
 
     // 判斷是「固定主題」還是「隨機關鍵字」
@@ -289,34 +351,22 @@ function App() {
       // 是固定主題
       const data = TOPIC_DATA[keyOrKeyword];
       title = data.title;
-      image = data.image;
       prompt = data.prompt;
     } else {
       // 是隨機關鍵字
       title = keyOrKeyword;
-      image = DEFAULT_IMAGE; // 用通用圖片
       prompt = `請詳細介紹關於「${keyOrKeyword}」的腎臟科衛教知識，包含定義、症狀與照護重點。`;
     }
 
-    const imageMessage = {
-      role: 'doctor',
-      text: `好的，關於「${title}」，這裡有一些資料供您參考：`,
-      image: image
-    };
-
-    setMessages(prev => [...prev, imageMessage]);
-
-    // 顯示「查詢中」訊息
+    // 顯示「思考中」訊息（不顯示圖片）
     const thinkingMessage = useAssistantAPI
       ? '🔍 正在查詢知識庫...'
       : '🤔 思考中...';
 
     setMessages(prev => [...prev, { role: 'doctor', text: thinkingMessage, isThinking: true }]);
 
-    setTimeout(() => {
-      setMessages(prev => prev.slice(0, -1)); // 移除「思考中」訊息
-      callAI(prompt, image);
-    }, 300);
+    // 直接調用 AI，在 callAI 內部會移除思考提示
+    callAI(prompt);
   };
 
   const handleVoiceInput = () => {
@@ -360,7 +410,10 @@ function App() {
       {/* 左欄：選單區 */}
       <div className="sidebar-menu">
         <div className="brand-title">iNephro</div>
-        
+        <div style={{fontSize:'14px', color:'#ecf0f1', marginBottom:'20px', textAlign:'center', fontWeight:'500'}}>
+          衛教諮詢室
+        </div>
+
         {/* 1. 固定精選主題 */}
         <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>📌 精選主題</div>
         {Object.keys(TOPIC_DATA).map(key => (
@@ -398,10 +451,6 @@ function App() {
 
       {/* 中欄：對話區 */}
       <div className="center-stage">
-        <div className="stage-header">
-          <h2>iNephro 衛教諮詢室</h2>
-        </div>
-
         <div className="chat-scroll-area">
           {messages.map((msg, index) => {
             const { content, suggestions } = parseMessage(msg.text);
