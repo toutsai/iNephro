@@ -248,12 +248,18 @@ function App() {
     setMessages(prev => [...prev, { role: 'patient', text: question }]);
     setInput('');
     setIsDoctorSpeaking(false);
-    
-    setMessages(prev => [...prev, { role: 'doctor', text: '...' }]);
+
+    // 顯示「思考中」訊息
+    const thinkingMessage = useAssistantAPI
+      ? '🔍 正在查詢知識庫...'
+      : '🤔 思考中...';
+
+    setMessages(prev => [...prev, { role: 'doctor', text: thinkingMessage, isThinking: true }]);
+
     setTimeout(() => {
-      setMessages(prev => prev.slice(0, -1));
+      setMessages(prev => prev.slice(0, -1)); // 移除「思考中」訊息
       callAI(question);
-    }, 600);
+    }, 300);
   };
 
   // ★★★ 修改後的選單點擊處理 (整合隨機功能) ★★★
@@ -283,14 +289,20 @@ function App() {
       text: `好的，關於「${title}」，這裡有一些資料供您參考：`,
       image: image
     };
-    
+
     setMessages(prev => [...prev, imageMessage]);
-    setMessages(prev => [...prev, { role: 'doctor', text: '...' }]);
-    
+
+    // 顯示「查詢中」訊息
+    const thinkingMessage = useAssistantAPI
+      ? '🔍 正在查詢知識庫...'
+      : '🤔 思考中...';
+
+    setMessages(prev => [...prev, { role: 'doctor', text: thinkingMessage, isThinking: true }]);
+
     setTimeout(() => {
-      setMessages(prev => prev.slice(0, -1));
+      setMessages(prev => prev.slice(0, -1)); // 移除「思考中」訊息
       callAI(prompt, image);
-    }, 800);
+    }, 300);
   };
 
   const handleVoiceInput = () => {
@@ -383,10 +395,10 @@ function App() {
               <div key={index} className={`message-wrapper ${msg.role}`}>
                 {msg.image && (
                   <div className="message-image-container">
-                    <img 
-                      src={msg.image} 
-                      alt="衛教圖" 
-                      className="chat-image" 
+                    <img
+                      src={msg.image}
+                      alt="衛教圖"
+                      className="chat-image"
                       onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.parentElement.style.display = 'none';
@@ -394,8 +406,21 @@ function App() {
                     />
                   </div>
                 )}
-                <div className={`message ${msg.role}`}>
-                  <div className="markdown-content"><ReactMarkdown>{content}</ReactMarkdown></div>
+                <div className={`message ${msg.role} ${msg.isThinking ? 'thinking' : ''}`}>
+                  <div className="markdown-content">
+                    {msg.isThinking ? (
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span>{content}</span>
+                        <span className="thinking-animation">
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                        </span>
+                      </div>
+                    ) : (
+                      <ReactMarkdown>{content}</ReactMarkdown>
+                    )}
+                  </div>
                 </div>
                 {msg.role === 'doctor' && suggestions.length > 0 && (
                   <div className="suggestion-chips">
