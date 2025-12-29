@@ -50,6 +50,7 @@ function App() {
   const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef(null);
   const [selectedVoice, setSelectedVoice] = useState(null);
+  const [availableVoices, setAvailableVoices] = useState([]); // 所有可用語音
   const [isDoctorMinimized, setIsDoctorMinimized] = useState(false); // 行動版醫師是否縮小
 
   // --- 初始化與隨機邏輯 ---
@@ -74,9 +75,28 @@ function App() {
       const all = window.speechSynthesis.getVoices();
       console.log('可用語音列表:', all.map(v => `${v.name} (${v.lang})`));
 
-      const chinese = all.filter(v => v.lang.includes('zh') || v.lang.includes('CN') || v.lang.includes('TW'));
+      // 保存所有可用語音（用於下拉選單）
+      setAvailableVoices(all);
 
-      // 優先順序：
+      const chinese = all.filter(v =>
+        v.lang.includes('zh') ||
+        v.lang.includes('CN') ||
+        v.lang.includes('TW') ||
+        v.lang.includes('nan') // 閩南語/台語
+      );
+
+      // 檢查是否有儲存的語音偏好
+      const savedVoiceName = localStorage.getItem('selectedVoiceName');
+      if (savedVoiceName) {
+        const saved = all.find(v => v.name === savedVoiceName);
+        if (saved) {
+          console.log('✅ 使用儲存的語音:', saved.name);
+          setSelectedVoice(saved);
+          return;
+        }
+      }
+
+      // 預設語音選擇優先順序：
       // 1. 志偉 (Zhiwei) - 男聲
       // 2. 其他明確標註男聲的中文語音
       // 3. Google 中文男聲
@@ -479,6 +499,36 @@ function App() {
 
       {/* 右欄：3D 醫師 (桌面版) */}
       <div className="right-panel">
+        {/* 語音選擇器 */}
+        <div className="voice-selector">
+          <label htmlFor="voice-select">🔊 語音選擇：</label>
+          <select
+            id="voice-select"
+            value={selectedVoice?.name || ''}
+            onChange={(e) => {
+              const voice = availableVoices.find(v => v.name === e.target.value);
+              if (voice) {
+                setSelectedVoice(voice);
+                localStorage.setItem('selectedVoiceName', voice.name);
+                console.log('✅ 語音已切換至:', voice.name);
+              }
+            }}
+          >
+            {availableVoices
+              .filter(v =>
+                v.lang.includes('zh') ||
+                v.lang.includes('CN') ||
+                v.lang.includes('TW') ||
+                v.lang.includes('nan')
+              )
+              .map(voice => (
+                <option key={voice.name} value={voice.name}>
+                  {voice.name} ({voice.lang})
+                </option>
+              ))}
+          </select>
+        </div>
+
         <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}</div>
         <div className="doctor-container">
           <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} />
