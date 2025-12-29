@@ -259,9 +259,9 @@ export default async function handler(request) {
 
     console.log('❌ 快取未命中，調用 API');
 
-    // 5. 從環境變數取得設定
-    const OPENAI_KEY = process.env.VITE_OPENAI_KEY;
-    const ASSISTANT_ID = process.env.VITE_ASSISTANT_ID;
+    // 5. 從環境變數取得設定（後端專用，不會暴露到前端）
+    const OPENAI_KEY = process.env.OPENAI_API_KEY;
+    const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
     if (!OPENAI_KEY) {
       throw new Error('OpenAI API Key not configured');
