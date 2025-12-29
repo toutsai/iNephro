@@ -58,7 +58,6 @@ function App() {
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [useAssistantAPI, setUseAssistantAPI] = useState(false); // 是否使用 Assistants API
   const assistantServiceRef = useRef(null); // Assistant 服務實例
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 行動版側邊欄狀態
   const [isDoctorMinimized, setIsDoctorMinimized] = useState(false); // 行動版醫師是否縮小
 
   // --- 初始化與隨機邏輯 ---
@@ -425,44 +424,23 @@ function App() {
 
   return (
     <div className="main-container">
-      {/* 漢堡選單按鈕 (行動版) */}
-      <button
-        className="hamburger-menu"
-        onClick={() => setIsSidebarOpen(true)}
-        aria-label="開啟選單"
-      >
-        ☰
-      </button>
-
-      {/* 側邊欄遮罩 (行動版) */}
-      <div
-        className={`sidebar-overlay ${isSidebarOpen ? 'show' : ''}`}
-        onClick={() => setIsSidebarOpen(false)}
-      />
-
-      {/* 快速主題橫向滑動 (行動版) */}
+      {/* 快速主題橫向滑動 (行動版) - 顯示所有主題 */}
       <div className="quick-topics-container">
         <div className="quick-topics">
           {Object.keys(TOPIC_DATA).map(key => (
             <div
               key={key}
               className={`quick-topic-chip ${activeCategory === key ? 'active' : ''}`}
-              onClick={() => {
-                handleMenuClick(key);
-                setIsSidebarOpen(false);
-              }}
+              onClick={() => handleMenuClick(key)}
             >
               ⭐ {TOPIC_DATA[key].title}
             </div>
           ))}
-          {randomTopics.slice(0, 5).map((keyword, index) => (
+          {randomTopics.map((keyword, index) => (
             <div
               key={`quick-${index}`}
               className={`quick-topic-chip ${activeCategory === keyword ? 'active' : ''}`}
-              onClick={() => {
-                handleMenuClick(keyword);
-                setIsSidebarOpen(false);
-              }}
+              onClick={() => handleMenuClick(keyword)}
             >
               {keyword}
             </div>
@@ -470,8 +448,8 @@ function App() {
         </div>
       </div>
 
-      {/* 左欄：選單區 */}
-      <div className={`sidebar-menu ${isSidebarOpen ? 'open' : ''}`}>
+      {/* 左欄：選單區 (桌面版) */}
+      <div className="sidebar-menu">
         <div className="brand-title">iNephro 衛教諮詢室</div>
 
         {/* 1. 固定精選主題 */}
@@ -480,10 +458,7 @@ function App() {
           <div
             key={key}
             className={`menu-item ${activeCategory === key ? 'active' : ''}`}
-            onClick={() => {
-              handleMenuClick(key);
-              setIsSidebarOpen(false);
-            }}
+            onClick={() => handleMenuClick(key)}
           >
             ⭐ {TOPIC_DATA[key].title}
           </div>
@@ -503,10 +478,7 @@ function App() {
           <div
             key={index}
             className={`menu-item ${activeCategory === keyword ? 'active' : ''}`}
-            onClick={() => {
-              handleMenuClick(keyword);
-              setIsSidebarOpen(false);
-            }}
+            onClick={() => handleMenuClick(keyword)}
           >
             📄 {keyword}
           </div>
