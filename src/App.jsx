@@ -17,11 +17,6 @@ const TOPIC_DATA = {
     title: '慢性腎臟病 (CKD)',
     image: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?q=80&w=1000&auto=format&fit=crop',
     prompt: '請說明慢性腎臟病(CKD)的五個分期是什麼？'
-  },
-  'electrolytes': {
-    title: '電解質不平衡',
-    image: 'https://images.unsplash.com/photo-1584362917165-526a968579e8?q=80&w=1000&auto=format&fit=crop',
-    prompt: '請說明常見的電解質不平衡症狀。'
   }
 };
 
@@ -69,7 +64,7 @@ function App() {
   // ★★★ 關鍵修改：用 useCallback 包起來 ★★★
   const refreshTopics = React.useCallback(() => {
     const shuffled = [...KEYWORD_POOL].sort(() => 0.5 - Math.random());
-    setRandomTopics(shuffled.slice(0, 6)); 
+    setRandomTopics(shuffled.slice(0, 10));
   }, []); // 尾巴這個 [] 代表它永遠不會變
 
   // 一進來就先抽一次
@@ -115,7 +110,20 @@ function App() {
 
   const speak = (rawText) => {
     window.speechSynthesis.cancel();
-    const textToSpeak = rawText.split('///')[0]; // 過濾掉按鈕指令
+
+    // 過濾掉按鈕指令
+    let textToSpeak = rawText.split('///')[0];
+
+    // 過濾符號和特殊標記
+    textToSpeak = textToSpeak
+      .replace(/【.*?】/g, '') // 移除【】內的文字
+      .replace(/\[.*?\]/g, '') // 移除 [source] 等
+      .replace(/source/gi, '') // 移除 source 文字
+      .replace(/\*\*/g, '') // 移除粗體標記 **
+      .replace(/✓|✗|●|►|•/g, '') // 移除特殊符號
+      .replace(/\n{2,}/g, '\n') // 多個換行改成單個
+      .trim();
+
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     if (selectedVoice) {
       utterance.voice = selectedVoice;
@@ -125,6 +133,12 @@ function App() {
     utterance.onstart = () => setIsDoctorSpeaking(true);
     utterance.onend = () => setIsDoctorSpeaking(false);
     window.speechSynthesis.speak(utterance);
+  };
+
+  // 中斷語音播放
+  const stopSpeaking = () => {
+    window.speechSynthesis.cancel();
+    setIsDoctorSpeaking(false);
   };
 
   const callAI = async (userPrompt, contextImage = null) => {
@@ -406,17 +420,17 @@ function App() {
                     />
                   </div>
                 )}
-                <div className={`message ${msg.role} ${msg.isThinking ? 'thinking' : ''}`}>
+                <div className={`message ${msg.role}`}>
                   <div className="markdown-content">
                     {msg.isThinking ? (
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <span>{content}</span>
+                      <>
+                        {content}
                         <span className="thinking-animation">
                           <span className="dot"></span>
                           <span className="dot"></span>
                           <span className="dot"></span>
                         </span>
-                      </div>
+                      </>
                     ) : (
                       <ReactMarkdown>{content}</ReactMarkdown>
                     )}
@@ -452,9 +466,9 @@ function App() {
 
       {/* 右欄：3D 醫師 */}
       <div className="right-panel">
-        <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中...' : '👂 聆聽中'}</div>
+        <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}</div>
         <div className="doctor-container">
-          <Doctor3D isSpeaking={isDoctorSpeaking} />
+          <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} />
         </div>
       </div>
     </div>
