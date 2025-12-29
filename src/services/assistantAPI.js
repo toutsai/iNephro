@@ -169,8 +169,8 @@ class AssistantService {
           throw new Error(`Run 狀態異常: ${errorMsg}`);
         }
 
-        // 等待 1 秒後再檢查
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // 等待 0.5 秒後再檢查（比 1 秒快一倍）
+        await new Promise(resolve => setTimeout(resolve, 500));
         attempts++;
       } catch (error) {
         console.error(`❌ 檢查 Run 狀態時發生錯誤 (嘗試 ${attempts + 1}):`, error);
