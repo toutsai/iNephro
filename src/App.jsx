@@ -409,10 +409,7 @@ function App() {
     <div className="main-container">
       {/* 左欄：選單區 */}
       <div className="sidebar-menu">
-        <div className="brand-title">iNephro</div>
-        <div style={{fontSize:'14px', color:'#ecf0f1', marginBottom:'20px', textAlign:'center', fontWeight:'500'}}>
-          衛教諮詢室
-        </div>
+        <div className="brand-title">iNephro 衛教諮詢室</div>
 
         {/* 1. 固定精選主題 */}
         <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>📌 精選主題</div>
