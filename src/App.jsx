@@ -406,17 +406,17 @@ function App() {
                     />
                   </div>
                 )}
-                <div className={`message ${msg.role} ${msg.isThinking ? 'thinking' : ''}`}>
+                <div className={`message ${msg.role}`}>
                   <div className="markdown-content">
                     {msg.isThinking ? (
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <span>{content}</span>
+                      <>
+                        {content}
                         <span className="thinking-animation">
                           <span className="dot"></span>
                           <span className="dot"></span>
                           <span className="dot"></span>
                         </span>
-                      </div>
+                      </>
                     ) : (
                       <ReactMarkdown>{content}</ReactMarkdown>
                     )}
