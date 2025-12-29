@@ -116,11 +116,13 @@ function App() {
 
     // 過濾符號和特殊標記
     textToSpeak = textToSpeak
+      .replace(/✓\s*\*此回答基於專業知識庫\*/g, '') // 移除知識庫標記
+      .replace(/💡\s*AI 搜尋回答/g, '') // 移除 AI 搜尋標記
       .replace(/【.*?】/g, '') // 移除【】內的文字
       .replace(/\[.*?\]/g, '') // 移除 [source] 等
       .replace(/source/gi, '') // 移除 source 文字
       .replace(/\*\*/g, '') // 移除粗體標記 **
-      .replace(/✓|✗|●|►|•/g, '') // 移除特殊符號
+      .replace(/✓|✗|●|►|•|💡/g, '') // 移除特殊符號
       .replace(/\n{2,}/g, '\n') // 多個換行改成單個
       .trim();
 
@@ -205,10 +207,10 @@ function App() {
 
           if (confidence === 'low') {
             // 信心度低 - 建議轉人工
-            finalReply = `${reply}\n\n💡 **提示**：這個問題比較複雜，建議您諮詢專業醫師獲得更準確的建議。`;
+            finalReply = `💡 **提示**：這個問題比較複雜，建議您諮詢專業醫師獲得更準確的建議。\n\n${reply}`;
           } else if (confidence === 'high' && sources.length > 0) {
-            // 高信心度 - 顯示有引用來源
-            finalReply = `${reply}\n\n✓ *此回答基於專業知識庫*`;
+            // 高信心度 - 顯示有引用來源（標記放在最前面）
+            finalReply = `✓ *此回答基於專業知識庫*\n\n${reply}`;
           }
 
           removeThinkingMessage();
@@ -395,11 +397,19 @@ function App() {
     const parts = rawText.split('///');
     const content = parts[0].trim();
     let suggestions = [];
-    
+
     if (parts[1]) {
       let rawSuggestions = parts[1].trim();
-      rawSuggestions = rawSuggestions.replace(/後續建議.*[:：]/g, '');
-      rawSuggestions = rawSuggestions.replace(/｜/g, '|').replace(/\n/g, '|');
+      // 移除各種可能的引導文字
+      rawSuggestions = rawSuggestions
+        .replace(/後續建議.*[:：]/g, '')
+        .replace(/接下來您可能想知道的問題.*[:：]/g, '')
+        .replace(/延伸閱讀.*[:：]/g, '')
+        .replace(/相關問題.*[:：]/g, '')
+        .replace(/您可能還想了解.*[:：]/g, '')
+        .replace(/建議.*[:：]/g, '')
+        .replace(/｜/g, '|')
+        .replace(/\n/g, '|');
       suggestions = rawSuggestions.split('|').map(s => s.trim()).map(s => s.replace(/^\d+\.\s*/, '')).filter(s => s.length > 0);
     }
     return { content, suggestions };
@@ -409,10 +419,7 @@ function App() {
     <div className="main-container">
       {/* 左欄：選單區 */}
       <div className="sidebar-menu">
-        <div className="brand-title">iNephro</div>
-        <div style={{fontSize:'14px', color:'#ecf0f1', marginBottom:'20px', textAlign:'center', fontWeight:'500'}}>
-          衛教諮詢室
-        </div>
+        <div className="brand-title">iNephro 衛教諮詢室</div>
 
         {/* 1. 固定精選主題 */}
         <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>📌 精選主題</div>
