@@ -98,10 +98,44 @@ function App() {
   useEffect(() => {
     const loadVoices = () => {
       const all = window.speechSynthesis.getVoices();
+      console.log('可用語音列表:', all.map(v => `${v.name} (${v.lang})`));
+
       const chinese = all.filter(v => v.lang.includes('zh') || v.lang.includes('CN') || v.lang.includes('TW'));
-      const zhiwei = chinese.find(v => v.name.includes('Zhiwei'));
-      if (zhiwei) setSelectedVoice(zhiwei);
-      else if (chinese.length > 0) setSelectedVoice(chinese[0]);
+
+      // 優先順序：
+      // 1. 志偉 (Zhiwei) - 男聲
+      // 2. 其他明確標註男聲的中文語音
+      // 3. Google 中文男聲
+      // 4. 任何中文語音
+
+      const zhiwei = chinese.find(v =>
+        v.name.toLowerCase().includes('zhiwei') ||
+        v.name.includes('志偉')
+      );
+
+      const maleChinese = chinese.find(v =>
+        v.name.toLowerCase().includes('male') ||
+        v.name.includes('男')
+      );
+
+      const googleMale = chinese.find(v =>
+        v.name.toLowerCase().includes('google') &&
+        v.name.toLowerCase().includes('chinese')
+      );
+
+      if (zhiwei) {
+        console.log('✅ 使用志偉語音:', zhiwei.name);
+        setSelectedVoice(zhiwei);
+      } else if (maleChinese) {
+        console.log('✅ 使用中文男聲:', maleChinese.name);
+        setSelectedVoice(maleChinese);
+      } else if (googleMale) {
+        console.log('✅ 使用 Google 中文語音:', googleMale.name);
+        setSelectedVoice(googleMale);
+      } else if (chinese.length > 0) {
+        console.log('⚠️ 使用預設中文語音:', chinese[0].name);
+        setSelectedVoice(chinese[0]);
+      }
     };
     window.speechSynthesis.onvoiceschanged = loadVoices;
     loadVoices();
