@@ -58,6 +58,7 @@ function App() {
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [useAssistantAPI, setUseAssistantAPI] = useState(false); // 是否使用 Assistants API
   const assistantServiceRef = useRef(null); // Assistant 服務實例
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 行動版側邊欄狀態
 
   // --- 初始化與隨機邏輯 ---
   
@@ -422,17 +423,65 @@ function App() {
 
   return (
     <div className="main-container">
+      {/* 漢堡選單按鈕 (行動版) */}
+      <button
+        className="hamburger-menu"
+        onClick={() => setIsSidebarOpen(true)}
+        aria-label="開啟選單"
+      >
+        ☰
+      </button>
+
+      {/* 側邊欄遮罩 (行動版) */}
+      <div
+        className={`sidebar-overlay ${isSidebarOpen ? 'show' : ''}`}
+        onClick={() => setIsSidebarOpen(false)}
+      />
+
+      {/* 快速主題橫向滑動 (行動版) */}
+      <div className="quick-topics-container">
+        <div className="quick-topics">
+          {Object.keys(TOPIC_DATA).map(key => (
+            <div
+              key={key}
+              className={`quick-topic-chip ${activeCategory === key ? 'active' : ''}`}
+              onClick={() => {
+                handleMenuClick(key);
+                setIsSidebarOpen(false);
+              }}
+            >
+              ⭐ {TOPIC_DATA[key].title}
+            </div>
+          ))}
+          {randomTopics.slice(0, 5).map((keyword, index) => (
+            <div
+              key={`quick-${index}`}
+              className={`quick-topic-chip ${activeCategory === keyword ? 'active' : ''}`}
+              onClick={() => {
+                handleMenuClick(keyword);
+                setIsSidebarOpen(false);
+              }}
+            >
+              {keyword}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* 左欄：選單區 */}
-      <div className="sidebar-menu">
+      <div className={`sidebar-menu ${isSidebarOpen ? 'open' : ''}`}>
         <div className="brand-title">iNephro 衛教諮詢室</div>
 
         {/* 1. 固定精選主題 */}
         <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>📌 精選主題</div>
         {Object.keys(TOPIC_DATA).map(key => (
-          <div 
+          <div
             key={key}
             className={`menu-item ${activeCategory === key ? 'active' : ''}`}
-            onClick={() => handleMenuClick(key)}
+            onClick={() => {
+              handleMenuClick(key);
+              setIsSidebarOpen(false);
+            }}
           >
             ⭐ {TOPIC_DATA[key].title}
           </div>
@@ -449,10 +498,13 @@ function App() {
         </div>
 
         {randomTopics.map((keyword, index) => (
-          <div 
+          <div
             key={index}
             className={`menu-item ${activeCategory === keyword ? 'active' : ''}`}
-            onClick={() => handleMenuClick(keyword)}
+            onClick={() => {
+              handleMenuClick(keyword);
+              setIsSidebarOpen(false);
+            }}
           >
             📄 {keyword}
           </div>
@@ -525,12 +577,17 @@ function App() {
         </div>
       </div>
 
-      {/* 右欄：3D 醫師 */}
+      {/* 右欄：3D 醫師 (桌面版) */}
       <div className="right-panel">
         <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}</div>
         <div className="doctor-container">
           <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} />
         </div>
+      </div>
+
+      {/* 右下角浮動 3D 醫師 (行動版) */}
+      <div className={`doctor-floating ${isDoctorSpeaking ? 'speaking' : ''}`}>
+        <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} isMobile={true} />
       </div>
     </div>
   );
