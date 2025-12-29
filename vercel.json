@@ -3,11 +3,5 @@
     "api/**/*.js": {
       "runtime": "edge"
     }
-  },
-  "env": {
-    "VITE_OPENAI_KEY": "@openai-api-key",
-    "VITE_ASSISTANT_ID": "@assistant-id",
-    "UPSTASH_REDIS_REST_URL": "@upstash-redis-url",
-    "UPSTASH_REDIS_REST_TOKEN": "@upstash-redis-token"
   }
 }
