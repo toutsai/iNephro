@@ -516,6 +516,19 @@ body {
 
 /* 手機版 (≤ 768px) */
 @media (max-width: 768px) {
+  /* 全局設定 */
+  body, html {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  #root {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
   /* 顯示漢堡選單 */
   .hamburger-menu {
     display: block;
@@ -524,12 +537,47 @@ body {
   /* 顯示快速主題滑動 */
   .quick-topics-container {
     display: block;
-    margin-top: 60px; /* 給漢堡選單留空間 */
+    position: fixed;
+    top: 60px; /* 漢堡選單下方 */
+    left: 0;
+    right: 0;
+    z-index: 100;
+    margin-top: 0;
   }
 
   /* 顯示右下角浮動醫師 */
   .doctor-floating {
     display: block;
+    bottom: 140px; /* 提高位置，避免擋住輸入框 */
+    transition: transform 0.3s ease;
+  }
+
+  /* 縮小化的醫師 */
+  .doctor-floating.minimized {
+    transform: scale(0.6);
+    bottom: 100px;
+    right: 10px;
+    width: 80px;
+    height: 100px;
+  }
+
+  /* 關閉按鈕 */
+  .doctor-close-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* 隱藏桌面版側邊欄 */
@@ -572,12 +620,15 @@ body {
   /* 中間對話區佔滿 */
   .center-stage {
     flex: 1;
-    margin-top: 60px; /* 給頂部留空間 */
-    padding-bottom: 80px; /* 給浮動醫師留空間 */
+    margin-top: 115px; /* 給漢堡選單和快速主題留空間 (60px + 55px) */
+    padding-bottom: 10px;
+    width: 100%;
   }
 
   .main-container {
     flex-direction: column;
+    width: 100%;
+    overflow-x: hidden;
   }
 
   /* 對話氣泡調整 */

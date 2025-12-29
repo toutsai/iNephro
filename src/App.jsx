@@ -59,6 +59,7 @@ function App() {
   const [useAssistantAPI, setUseAssistantAPI] = useState(false); // 是否使用 Assistants API
   const assistantServiceRef = useRef(null); // Assistant 服務實例
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 行動版側邊欄狀態
+  const [isDoctorMinimized, setIsDoctorMinimized] = useState(false); // 行動版醫師是否縮小
 
   // --- 初始化與隨機邏輯 ---
   
@@ -586,7 +587,14 @@ function App() {
       </div>
 
       {/* 右下角浮動 3D 醫師 (行動版) */}
-      <div className={`doctor-floating ${isDoctorSpeaking ? 'speaking' : ''}`}>
+      <div className={`doctor-floating ${isDoctorSpeaking ? 'speaking' : ''} ${isDoctorMinimized ? 'minimized' : ''}`}>
+        <button
+          className="doctor-close-btn"
+          onClick={() => setIsDoctorMinimized(!isDoctorMinimized)}
+          title={isDoctorMinimized ? '展開醫師' : '縮小醫師'}
+        >
+          {isDoctorMinimized ? '➕' : '➖'}
+        </button>
         <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} isMobile={true} />
       </div>
     </div>
