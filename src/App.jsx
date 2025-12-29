@@ -155,9 +155,10 @@ function App() {
     const CACHE_KEY_PREFIX = 'inephro_cache_';
     const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7天過期
 
-    // 生成快取鍵（使用 prompt 的 hash）
+    // 生成快取鍵（使用完整 prompt 的 base64）
     const getCacheKey = (prompt) => {
-      return CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt)).slice(0, 50);
+      // 移除 .slice(0, 50) - 這會導致不同問題產生相同的快取鍵！
+      return CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt));
     };
 
     // 檢查快取
