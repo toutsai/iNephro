@@ -58,6 +58,7 @@ function App() {
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [useAssistantAPI, setUseAssistantAPI] = useState(false); // 是否使用 Assistants API
   const assistantServiceRef = useRef(null); // Assistant 服務實例
+  const [isDoctorMinimized, setIsDoctorMinimized] = useState(false); // 行動版醫師是否縮小
 
   // --- 初始化與隨機邏輯 ---
   
@@ -153,9 +154,10 @@ function App() {
     const CACHE_KEY_PREFIX = 'inephro_cache_';
     const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7天過期
 
-    // 生成快取鍵（使用 prompt 的 hash）
+    // 生成快取鍵（使用完整 prompt 的 base64）
     const getCacheKey = (prompt) => {
-      return CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt)).slice(0, 50);
+      // 移除 .slice(0, 50) - 這會導致不同問題產生相同的快取鍵！
+      return CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt));
     };
 
     // 檢查快取
@@ -422,14 +424,38 @@ function App() {
 
   return (
     <div className="main-container">
-      {/* 左欄：選單區 */}
+      {/* 快速主題橫向滑動 (行動版) - 顯示所有主題 */}
+      <div className="quick-topics-container">
+        <div className="quick-topics">
+          {Object.keys(TOPIC_DATA).map(key => (
+            <div
+              key={key}
+              className={`quick-topic-chip ${activeCategory === key ? 'active' : ''}`}
+              onClick={() => handleMenuClick(key)}
+            >
+              ⭐ {TOPIC_DATA[key].title}
+            </div>
+          ))}
+          {randomTopics.map((keyword, index) => (
+            <div
+              key={`quick-${index}`}
+              className={`quick-topic-chip ${activeCategory === keyword ? 'active' : ''}`}
+              onClick={() => handleMenuClick(keyword)}
+            >
+              {keyword}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 左欄：選單區 (桌面版) */}
       <div className="sidebar-menu">
         <div className="brand-title">iNephro 衛教諮詢室</div>
 
         {/* 1. 固定精選主題 */}
         <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>📌 精選主題</div>
         {Object.keys(TOPIC_DATA).map(key => (
-          <div 
+          <div
             key={key}
             className={`menu-item ${activeCategory === key ? 'active' : ''}`}
             onClick={() => handleMenuClick(key)}
@@ -449,7 +475,7 @@ function App() {
         </div>
 
         {randomTopics.map((keyword, index) => (
-          <div 
+          <div
             key={index}
             className={`menu-item ${activeCategory === keyword ? 'active' : ''}`}
             onClick={() => handleMenuClick(keyword)}
@@ -525,12 +551,24 @@ function App() {
         </div>
       </div>
 
-      {/* 右欄：3D 醫師 */}
+      {/* 右欄：3D 醫師 (桌面版) */}
       <div className="right-panel">
         <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}</div>
         <div className="doctor-container">
           <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} />
         </div>
+      </div>
+
+      {/* 右下角浮動 3D 醫師 (行動版) */}
+      <div className={`doctor-floating ${isDoctorSpeaking ? 'speaking' : ''} ${isDoctorMinimized ? 'minimized' : ''}`}>
+        <button
+          className="doctor-close-btn"
+          onClick={() => setIsDoctorMinimized(!isDoctorMinimized)}
+          title={isDoctorMinimized ? '展開醫師' : '縮小醫師'}
+        >
+          {isDoctorMinimized ? '➕' : '➖'}
+        </button>
+        <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} isMobile={true} />
       </div>
     </div>
   );

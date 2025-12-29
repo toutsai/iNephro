@@ -19,6 +19,7 @@ body {
   display: flex;
   height: 100vh;
   width: 100vw;
+  overflow: hidden;
 }
 
 /* --- 2. 左欄：導覽選單 --- */
@@ -67,11 +68,13 @@ body {
 /* --- 3. 中欄：內容與對話區 --- */
 .center-stage {
   flex: 1;
+  min-width: 0; /* 防止 flex 項目溢出 */
   display: flex;
   flex-direction: column;
   background-color: #ffffff;
   border-right: 1px solid #e0e0e0;
   position: relative;
+  overflow: hidden;
 }
 
 /* 頂部標題列 */
@@ -412,5 +415,217 @@ body {
   30% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* --- 9. 響應式設計 (行動版) --- */
+
+/* 快速主題橫向滑動容器 (僅在行動版顯示) */
+.quick-topics-container {
+  display: none; /* 桌面版隱藏 */
+  overflow-x: auto;
+  padding: 10px 15px;
+  background-color: #ecf0f1;
+  border-bottom: 1px solid #bdc3c7;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+}
+
+.quick-topics-container::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.quick-topics {
+  display: flex;
+  gap: 10px;
+  padding: 5px 0;
+}
+
+.quick-topic-chip {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #3498db, #2ecc71);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+  transition: all 0.3s;
+}
+
+.quick-topic-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.5);
+}
+
+.quick-topic-chip.active {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+/* 右下角 3D 醫師浮動視窗 */
+.doctor-floating {
+  display: none; /* 桌面版隱藏 */
+  position: fixed;
+  right: 15px;
+  bottom: 80px;
+  width: 120px;
+  height: 150px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  background: linear-gradient(180deg, #eaf2f8 0%, #ffffff 100%);
+  z-index: 500;
+  border: 3px solid #3498db;
+}
+
+.doctor-floating.speaking {
+  border-color: #e74c3c;
+  animation: doctor-pulse 1.5s infinite;
+}
+
+@keyframes doctor-pulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(52, 152, 219, 0.4);
+  }
+  50% {
+    box-shadow: 0 8px 32px rgba(231, 76, 60, 0.6);
+  }
+}
+
+/* 手機版 (≤ 768px) */
+@media (max-width: 768px) {
+  /* 全局設定 */
+  body, html {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  #root {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* 顯示快速主題滑動 (固定在頂部) */
+  .quick-topics-container {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    margin-top: 0;
+  }
+
+  /* 顯示右下角浮動醫師 */
+  .doctor-floating {
+    display: block;
+    bottom: 140px; /* 提高位置，避免擋住輸入框 */
+    transition: transform 0.3s ease;
+  }
+
+  /* 縮小化的醫師 */
+  .doctor-floating.minimized {
+    transform: scale(0.6);
+    bottom: 100px;
+    right: 10px;
+    width: 80px;
+    height: 100px;
+  }
+
+  /* 關閉按鈕 */
+  .doctor-close-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 完全隱藏桌面版側邊欄 */
+  .sidebar-menu {
+    display: none;
+  }
+
+  /* 隱藏桌面版右側 3D 醫師 */
+  .right-panel {
+    display: none;
+  }
+
+  /* 中間對話區佔滿 */
+  .center-stage {
+    flex: 1;
+    margin-top: 55px; /* 只給快速主題留空間 */
+    padding-bottom: 10px;
+    width: 100%;
+  }
+
+  .main-container {
+    flex-direction: column;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* 對話氣泡調整 */
+  .message {
+    max-width: 90%;
+    font-size: 14px;
+  }
+
+  /* 延伸問題按鈕垂直堆疊 */
+  .suggestion-chips {
+    flex-direction: column;
+    max-width: 100%;
+  }
+
+  .chip {
+    width: 100%;
+    text-align: center;
+    padding: 12px 18px;
+    font-size: 15px;
+  }
+
+  /* 輸入框調整 */
+  .input-area-wrapper {
+    padding: 12px 15px;
+  }
+
+  .input-group {
+    padding: 8px 15px;
+  }
+
+  .chat-input {
+    font-size: 16px; /* 防止 iOS 自動縮放 */
+  }
+
+  .icon-btn {
+    font-size: 1.3rem;
+    padding: 10px;
+    min-width: 44px; /* 符合點擊區域建議 */
+    min-height: 44px;
+  }
+
+  /* 聊天區域滾動優化 */
+  .chat-scroll-area {
+    padding: 15px 12px;
+    padding-bottom: 20px;
+  }
+
+  /* 訊息間距調整 */
+  .message-wrapper {
+    margin-bottom: 20px;
   }
 }

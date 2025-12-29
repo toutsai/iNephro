@@ -79,22 +79,29 @@ function DoctorModel({ isSpeaking }) {
   );
 }
 
-export default function Doctor3D({ isSpeaking, onStopSpeaking }) {
+export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false }) {
+  // 行動版：只顯示臉部和頸部的特寫鏡頭
+  const cameraSettings = isMobile
+    ? { position: [0, 1.5, 3], fov: 30 } // 更近的距離，更高的角度，只看臉部
+    : { position: [0, 0.5, 6.5], fov: 25 }; // 桌面版：全身
+
   return (
     <div
       onClick={onStopSpeaking}
       style={{ width: '100%', height: '100%', cursor: isSpeaking ? 'pointer' : 'default' }}
       title={isSpeaking ? '點擊停止說話' : ''}
     >
-      <Canvas camera={{ position: [0, 0.5, 6.5], fov: 25 }}>
+      <Canvas camera={cameraSettings}>
         <ambientLight intensity={2} />
         <Environment preset="city" />
         <DoctorModel isSpeaking={isSpeaking} />
-        <ContactShadows opacity={0.4} scale={10} blur={2.5} far={4} position={[0, -5.4, 0]} />
+        {!isMobile && (
+          <ContactShadows opacity={0.4} scale={10} blur={2.5} far={4} position={[0, -5.4, 0]} />
+        )}
         <OrbitControls
           enableZoom={false}
-          minPolarAngle={Math.PI/2.2}
-          maxPolarAngle={Math.PI/1.8}
+          minPolarAngle={isMobile ? Math.PI/2.5 : Math.PI/2.2}
+          maxPolarAngle={isMobile ? Math.PI/2 : Math.PI/1.8}
           minAzimuthAngle={-Math.PI / 4}
           maxAzimuthAngle={Math.PI / 4}
         />
