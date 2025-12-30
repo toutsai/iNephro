@@ -15,11 +15,18 @@ function DoctorModel({ isSpeaking }) {
   const headBoneRef = useRef(null);
   const spineRef = useRef(null);
 
+  // 眨眼控制
+  const blinkTimerRef = useRef(0);
+  const nextBlinkTimeRef = useRef(2);
+
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh && child.morphTargetDictionary) {
         if (child.name === 'Wolf3D_Head') {
           faceMeshRef.current = child; // 存入 Ref
+
+          // 列出所有可用的 morph targets（除錯用）
+          console.log('可用的 Morph Targets:', Object.keys(child.morphTargetDictionary));
         }
         if (child.name === 'Wolf3D_Teeth') {
           teethMeshRef.current = child; // 存入 Ref
@@ -44,6 +51,46 @@ function DoctorModel({ isSpeaking }) {
 
     if (ref.current) {
       ref.current.position.y = BASE_Y + Math.sin(t) * 0.05;
+    }
+
+    // --- 眨眼動畫（自動、隨機） ---
+    if (faceMeshRef.current) {
+      const dict = faceMeshRef.current.morphTargetDictionary;
+
+      // 眨眼計時器
+      blinkTimerRef.current += state.clock.getDelta();
+
+      // 當時間到達下次眨眼時間
+      if (blinkTimerRef.current >= nextBlinkTimeRef.current) {
+        // 重置計時器
+        blinkTimerRef.current = 0;
+        // 設定下次眨眼時間（說話時 1.5-3秒，不說話時 2-5秒）
+        const minInterval = isSpeaking ? 1.5 : 2;
+        const maxInterval = isSpeaking ? 3 : 5;
+        nextBlinkTimeRef.current = minInterval + Math.random() * (maxInterval - minInterval);
+      }
+
+      // 眨眼動畫（快速閉眼再睜開）
+      const blinkProgress = blinkTimerRef.current;
+      let blinkValue = 0;
+
+      // 前 0.1 秒：眼睛閉上
+      if (blinkProgress < 0.1) {
+        blinkValue = blinkProgress / 0.1;
+      }
+      // 0.1 - 0.2 秒：眼睛睜開
+      else if (blinkProgress < 0.2) {
+        blinkValue = 1 - (blinkProgress - 0.1) / 0.1;
+      }
+
+      // 套用眨眼（嘗試不同的 morph target 名稱）
+      const blinkNames = ['eyeBlinkLeft', 'eyeBlinkRight', 'eyesClosed', 'blink'];
+      blinkNames.forEach(name => {
+        const idx = dict[name];
+        if (idx !== undefined) {
+          faceMeshRef.current.morphTargetInfluences[idx] = blinkValue;
+        }
+      });
     }
 
     // --- 說話時的動畫 ---
