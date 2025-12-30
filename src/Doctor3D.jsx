@@ -14,59 +14,52 @@ function DoctorModel({ isSpeaking }) {
   const teethMeshRef = useRef(null);
   const headBoneRef = useRef(null);
   const spineRef = useRef(null);
+  const leftArmRef = useRef(null);
+  const rightArmRef = useRef(null);
+  const leftForeArmRef = useRef(null);
+  const rightForeArmRef = useRef(null);
 
   useEffect(() => {
-    console.log('=== 🔍 3D 模型完整掃描開始 ===');
-
-    // 掃描所有 Mesh 及其 Morph Targets
-    const meshesWithMorphs = [];
-    const allBones = [];
-
     scene.traverse((child) => {
-      // 收集所有 Mesh 及其 Morph Targets
-      if (child.isMesh) {
-        console.log(`📦 Mesh: ${child.name}`);
-
-        if (child.morphTargetDictionary) {
-          const morphs = Object.keys(child.morphTargetDictionary);
-          console.log(`  ✅ Morph Targets (${morphs.length}):`, morphs);
-          meshesWithMorphs.push({
-            name: child.name,
-            morphs: morphs
-          });
-
-          // 儲存特定 Mesh 的引用
-          if (child.name === 'Wolf3D_Head') {
-            faceMeshRef.current = child;
-          }
-          if (child.name === 'Wolf3D_Teeth') {
-            teethMeshRef.current = child;
-          }
-        } else {
-          console.log(`  ❌ 無 Morph Targets`);
+      // 儲存 Mesh 引用
+      if (child.isMesh && child.morphTargetDictionary) {
+        if (child.name === 'Wolf3D_Head') {
+          faceMeshRef.current = child;
+        }
+        if (child.name === 'Wolf3D_Teeth') {
+          teethMeshRef.current = child;
         }
       }
 
-      // 收集所有骨骼
+      // 儲存骨骼引用
       if (child.isBone) {
-        console.log(`🦴 Bone: ${child.name}`);
-        allBones.push(child.name);
+        const name = child.name.toLowerCase();
 
-        // 儲存特定骨骼的引用
-        if (child.name.toLowerCase().includes('head') || child.name.toLowerCase().includes('neck')) {
+        // 頭部和身體
+        if (name.includes('head') || name.includes('neck')) {
           headBoneRef.current = child;
         }
-        if (child.name.toLowerCase().includes('spine')) {
+        if (name.includes('spine')) {
           spineRef.current = child;
+        }
+
+        // 手臂
+        if (name.includes('leftarm') || name.includes('left_arm') || name === 'LeftArm') {
+          leftArmRef.current = child;
+        }
+        if (name.includes('rightarm') || name.includes('right_arm') || name === 'RightArm') {
+          rightArmRef.current = child;
+        }
+
+        // 前臂
+        if (name.includes('leftforearm') || name.includes('left_forearm') || name === 'LeftForeArm') {
+          leftForeArmRef.current = child;
+        }
+        if (name.includes('rightforearm') || name.includes('right_forearm') || name === 'RightForeArm') {
+          rightForeArmRef.current = child;
         }
       }
     });
-
-    console.log('=== 📊 掃描結果統計 ===');
-    console.log(`總共找到 ${meshesWithMorphs.length} 個帶 Morph Targets 的 Mesh`);
-    console.log(`總共找到 ${allBones.length} 個骨骼`);
-    console.log('所有骨骼列表:', allBones);
-    console.log('=== 🔍 掃描結束 ===');
   }, [scene]);
 
   const BASE_Y = -5.3; 
@@ -103,6 +96,24 @@ function DoctorModel({ isSpeaking }) {
         spineRef.current.rotation.y = Math.sin(t * 0.4) * 0.08; // 身體輕微左右擺動
       }
 
+      // 4. 手臂輕微擺動（說話時手勢）
+      if (leftArmRef.current) {
+        leftArmRef.current.rotation.z = Math.sin(t * 0.6) * 0.1; // 左臂輕微揮動
+        leftArmRef.current.rotation.x = Math.sin(t * 0.5 + 1) * 0.05; // 前後擺動
+      }
+      if (rightArmRef.current) {
+        rightArmRef.current.rotation.z = Math.sin(t * 0.6 + Math.PI) * 0.1; // 右臂輕微揮動（相反方向）
+        rightArmRef.current.rotation.x = Math.sin(t * 0.5) * 0.05; // 前後擺動
+      }
+
+      // 5. 前臂微微彎曲（更自然的手勢）
+      if (leftForeArmRef.current) {
+        leftForeArmRef.current.rotation.y = Math.sin(t * 0.7) * 0.08;
+      }
+      if (rightForeArmRef.current) {
+        rightForeArmRef.current.rotation.y = Math.sin(t * 0.7 + Math.PI/2) * 0.08;
+      }
+
     } else {
       // 不說話時，回到正面姿勢
       if (faceMeshRef.current) {
@@ -122,13 +133,27 @@ function DoctorModel({ isSpeaking }) {
         }
       }
 
-      // 頭部和身體緩慢回到中立位置
+      // 頭部、身體、手臂緩慢回到中立位置
       if (headBoneRef.current) {
         headBoneRef.current.rotation.y = THREE.MathUtils.lerp(headBoneRef.current.rotation.y, 0, 0.1);
         headBoneRef.current.rotation.x = THREE.MathUtils.lerp(headBoneRef.current.rotation.x, 0, 0.1);
       }
       if (spineRef.current) {
         spineRef.current.rotation.y = THREE.MathUtils.lerp(spineRef.current.rotation.y, 0, 0.1);
+      }
+      if (leftArmRef.current) {
+        leftArmRef.current.rotation.z = THREE.MathUtils.lerp(leftArmRef.current.rotation.z, 0, 0.1);
+        leftArmRef.current.rotation.x = THREE.MathUtils.lerp(leftArmRef.current.rotation.x, 0, 0.1);
+      }
+      if (rightArmRef.current) {
+        rightArmRef.current.rotation.z = THREE.MathUtils.lerp(rightArmRef.current.rotation.z, 0, 0.1);
+        rightArmRef.current.rotation.x = THREE.MathUtils.lerp(rightArmRef.current.rotation.x, 0, 0.1);
+      }
+      if (leftForeArmRef.current) {
+        leftForeArmRef.current.rotation.y = THREE.MathUtils.lerp(leftForeArmRef.current.rotation.y, 0, 0.1);
+      }
+      if (rightForeArmRef.current) {
+        rightForeArmRef.current.rotation.y = THREE.MathUtils.lerp(rightForeArmRef.current.rotation.y, 0, 0.1);
       }
     }
   });
