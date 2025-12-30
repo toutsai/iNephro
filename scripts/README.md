@@ -118,7 +118,82 @@ npm run warmup
 
 此檔案已加入 `.gitignore`，不會被提交到版本控制。
 
-## ⏰ 建議執行時機
+## 🤖 自動執行（推薦）
+
+### Vercel Cron Jobs
+
+專案已設定 **自動每 7 天執行一次**快取預熱！
+
+**設定檔案：** `vercel.json`
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/warmup",
+      "schedule": "0 0 */7 * *"
+    }
+  ]
+}
+```
+
+**排程說明：**
+- `0 0 */7 * *` = 每 7 天的午夜 00:00（UTC 時間）
+
+### 必要環境變數
+
+為了安全性，需要在 Vercel 設定 `CRON_SECRET` 環境變數：
+
+1. 進入 Vercel 專案設定
+2. Settings → Environment Variables
+3. 新增變數：
+   - Name: `CRON_SECRET`
+   - Value: （任意隨機字串，建議使用 `openssl rand -base64 32` 生成）
+4. 儲存後重新部署
+
+**產生安全金鑰：**
+```bash
+openssl rand -base64 32
+```
+
+### 查看執行記錄
+
+自動執行的記錄會出現在 Vercel 的 Functions 日誌中：
+
+1. 進入 Vercel Dashboard
+2. 選擇專案
+3. Deployments → 最新部署 → Functions
+4. 點擊 `/api/warmup` 查看執行記錄
+
+### 手動觸發測試
+
+想要手動測試自動預熱 API：
+
+```bash
+# 需要 CRON_SECRET
+curl -X GET https://i-nephro.vercel.app/api/warmup \
+  -H "Authorization: Bearer YOUR_CRON_SECRET"
+```
+
+### 修改執行頻率
+
+編輯 `vercel.json` 中的 `schedule`：
+
+```json
+// 每天執行
+"schedule": "0 0 * * *"
+
+// 每 7 天執行（預設）
+"schedule": "0 0 */7 * *"
+
+// 每月 1 號執行
+"schedule": "0 0 1 * *"
+
+// 每週日執行
+"schedule": "0 0 * * 0"
+```
+
+## ⏰ 手動執行時機
 
 ### 1. 知識庫更新後
 
