@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "warmup": "node scripts/warmup-cache.js",
-    "convert-nutrition": "node scripts/convert-excel-to-json.js"
+    "convert-nutrition": "node scripts/convert-excel-to-json.cjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
