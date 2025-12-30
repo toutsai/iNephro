@@ -83,6 +83,21 @@ function parseExcel(filePath) {
 
   log(`📊 總共 ${rawData.length} 筆資料`, 'yellow');
 
+  // 顯示前 3 筆的欄位名稱，幫助除錯
+  if (rawData.length > 0) {
+    log('\n🔍 檢測到的欄位名稱:', 'cyan');
+    const firstRow = rawData[0];
+    const columns = Object.keys(firstRow);
+    columns.forEach((col, idx) => {
+      if (idx < 15) {  // 只顯示前 15 個欄位
+        log(`  ${idx + 1}. ${col} = ${firstRow[col]}`, 'yellow');
+      }
+    });
+    if (columns.length > 15) {
+      log(`  ... 還有 ${columns.length - 15} 個欄位`, 'yellow');
+    }
+  }
+
   return rawData;
 }
 
