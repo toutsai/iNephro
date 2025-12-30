@@ -74,6 +74,7 @@ function App() {
   const [nutritionQuery, setNutritionQuery] = useState('');
   const [nutritionResults, setNutritionResults] = useState(null);
   const [isSearchingNutrition, setIsSearchingNutrition] = useState(false);
+  const [showNutritionModal, setShowNutritionModal] = useState(false); // 行動版營養查詢彈窗
 
   // --- 初始化與隨機邏輯 ---
   
@@ -656,6 +657,102 @@ function App() {
           currentText={messages.filter(m => m.role === 'doctor').slice(-1)[0]?.text || ''}
         />
       </div>
+
+      {/* 行動版營養查詢浮動按鈕 */}
+      <button
+        className="nutrition-floating-btn"
+        onClick={() => setShowNutritionModal(true)}
+        title="營養查詢"
+      >
+        🥗
+      </button>
+
+      {/* 行動版營養查詢彈窗 */}
+      {showNutritionModal && (
+        <div className="nutrition-modal-overlay" onClick={() => setShowNutritionModal(false)}>
+          <div className="nutrition-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="nutrition-modal-header">
+              <h3>🥗 營養查詢</h3>
+              <button className="nutrition-modal-close" onClick={() => setShowNutritionModal(false)}>✕</button>
+            </div>
+            <div className="nutrition-modal-body">
+              <div className="nutrition-search-box">
+                <input
+                  type="text"
+                  className="nutrition-input"
+                  placeholder="輸入食物名稱 (例：香蕉、芭樂)"
+                  value={nutritionQuery}
+                  onChange={(e) => setNutritionQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleNutritionSearch()}
+                />
+                <button
+                  className="nutrition-search-btn"
+                  onClick={() => handleNutritionSearch()}
+                  disabled={isSearchingNutrition}
+                >
+                  {isSearchingNutrition ? '⏳' : '🔍'}
+                </button>
+              </div>
+
+              {/* 營養查詢結果 */}
+              {nutritionResults && (
+                <div className="nutrition-results">
+                  {nutritionResults.error ? (
+                    <div className="nutrition-error">❌ {nutritionResults.error}</div>
+                  ) : nutritionResults.count === 0 ? (
+                    <div className="nutrition-empty">😢 找不到「{nutritionResults.query}」<br/>請嘗試其他關鍵字</div>
+                  ) : (
+                    <div className="nutrition-items">
+                      {nutritionResults.results.map((food, idx) => (
+                        <div key={idx} className="nutrition-item">
+                          <div className="nutrition-item-header">
+                            <strong>{food.name}</strong>
+                            <span className="nutrition-category">{food.category}</span>
+                          </div>
+                          <div className="nutrition-values">
+                            <div className="nutrition-value">
+                              <span className="label">鈉</span>
+                              <span className="value">{food.sodium} mg</span>
+                            </div>
+                            <div className="nutrition-value">
+                              <span className="label">鉀</span>
+                              <span className="value">{food.potassium} mg</span>
+                            </div>
+                            <div className="nutrition-value">
+                              <span className="label">磷</span>
+                              <span className="value">{food.phosphorus} mg</span>
+                            </div>
+                            <div className="nutrition-value">
+                              <span className="label">鈣</span>
+                              <span className="value">{food.calcium} mg</span>
+                            </div>
+                            <div className="nutrition-value">
+                              <span className="label">鎂</span>
+                              <span className="value">{food.magnesium} mg</span>
+                            </div>
+                          </div>
+                          {food.warnings && food.warnings.length > 0 && (
+                            <div className="nutrition-warnings">
+                              {food.warnings.map((warning, wIdx) => (
+                                <div key={wIdx} className={`warning ${warning.level}`}>
+                                  {warning.icon} {warning.message}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <div className="nutrition-note">
+                        💡 數值為每 100g 可食部分 (源自食品營養成分資料庫)
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
