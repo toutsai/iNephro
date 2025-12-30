@@ -15,6 +15,16 @@ const TOPIC_DATA = {
     title: '慢性腎臟病 (CKD)',
     image: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?q=80&w=1000&auto=format&fit=crop',
     prompt: '請說明慢性腎臟病(CKD)的五個分期是什麼？'
+  },
+  'hemodialysis': {
+    title: '血液透析',
+    image: 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?q=80&w=1000&auto=format&fit=crop',
+    prompt: '請詳細介紹血液透析（洗腎）的原理、流程、注意事項與照護重點。'
+  },
+  'peritoneal-dialysis': {
+    title: '腹膜透析',
+    image: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?q=80&w=1000&auto=format&fit=crop',
+    prompt: '請說明腹膜透析的原理、優缺點、操作方式與居家照護注意事項。'
   }
 };
 
