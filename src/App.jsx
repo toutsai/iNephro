@@ -1,4 +1,4 @@
-// src/App.jsx - Edge Function 版本（雲端快取 + AI）
+// src/App.jsx - Edge Function 版本（雲端快取 + AI + Streaming）
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import Doctor3D from './Doctor3D';
@@ -42,9 +42,6 @@ const KEYWORD_POOL = [
   "低蛋白飲食", "限水", "楊桃中毒", "低鈉飲食"
 ];
 
-// 通用圖片 (給隨機主題用)
-const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=1000&auto=format&fit=crop";
-
 function App() {
   // --- State ---
   const [activeCategory, setActiveCategory] = useState('home');
@@ -63,20 +60,16 @@ function App() {
   const [availableVoices, setAvailableVoices] = useState([]); // 所有可用語音
   const [isDoctorMinimized, setIsDoctorMinimized] = useState(false); // 行動版醫師是否縮小
 
-  // TTS 模式：browser（瀏覽器原生）或 google-cloud（台灣國語）
-  const [ttsMode, setTtsMode] = useState('browser');
-  const [googleVoice, setGoogleVoice] = useState('tw-male-1'); // Google Cloud TTS 語音
-  const audioRef = useRef(null); // 用於播放雲端 TTS 音訊
+  // Thread ID for conversation continuity
+  const [threadId, setThreadId] = useState(() => localStorage.getItem('inephro_thread_id'));
 
   // --- 初始化與隨機邏輯 ---
   
-  // ★★★ 關鍵修改：用 useCallback 包起來 ★★★
   const refreshTopics = React.useCallback(() => {
     const shuffled = [...KEYWORD_POOL].sort(() => 0.5 - Math.random());
     setRandomTopics(shuffled.slice(0, 10));
-  }, []); // 尾巴這個 [] 代表它永遠不會變
+  }, []);
 
-  // 一進來就先抽一次
   useEffect(() => {
     refreshTopics();
   }, [refreshTopics]);
@@ -88,63 +81,32 @@ function App() {
   useEffect(() => {
     const loadVoices = () => {
       const all = window.speechSynthesis.getVoices();
-      console.log('可用語音列表:', all.map(v => `${v.name} (${v.lang})`));
-
-      // 保存所有可用語音（用於下拉選單）
       setAvailableVoices(all);
 
       const chinese = all.filter(v =>
         v.lang.includes('zh') ||
         v.lang.includes('CN') ||
         v.lang.includes('TW') ||
-        v.lang.includes('nan') // 閩南語/台語
+        v.lang.includes('nan')
       );
 
-      // 檢查是否有儲存的語音偏好
       const savedVoiceName = localStorage.getItem('selectedVoiceName');
       if (savedVoiceName) {
         const saved = all.find(v => v.name === savedVoiceName);
         if (saved) {
-          console.log('✅ 使用儲存的語音:', saved.name);
           setSelectedVoice(saved);
           return;
         }
       }
 
-      // 預設語音選擇優先順序：
-      // 1. 志偉 (Zhiwei) - 男聲
-      // 2. 其他明確標註男聲的中文語音
-      // 3. Google 中文男聲
-      // 4. 任何中文語音
+      const zhiwei = chinese.find(v => v.name.toLowerCase().includes('zhiwei') || v.name.includes('志偉'));
+      const maleChinese = chinese.find(v => v.name.toLowerCase().includes('male') || v.name.includes('男'));
+      const googleMale = chinese.find(v => v.name.toLowerCase().includes('google') && v.name.toLowerCase().includes('chinese'));
 
-      const zhiwei = chinese.find(v =>
-        v.name.toLowerCase().includes('zhiwei') ||
-        v.name.includes('志偉')
-      );
-
-      const maleChinese = chinese.find(v =>
-        v.name.toLowerCase().includes('male') ||
-        v.name.includes('男')
-      );
-
-      const googleMale = chinese.find(v =>
-        v.name.toLowerCase().includes('google') &&
-        v.name.toLowerCase().includes('chinese')
-      );
-
-      if (zhiwei) {
-        console.log('✅ 使用志偉語音:', zhiwei.name);
-        setSelectedVoice(zhiwei);
-      } else if (maleChinese) {
-        console.log('✅ 使用中文男聲:', maleChinese.name);
-        setSelectedVoice(maleChinese);
-      } else if (googleMale) {
-        console.log('✅ 使用 Google 中文語音:', googleMale.name);
-        setSelectedVoice(googleMale);
-      } else if (chinese.length > 0) {
-        console.log('⚠️ 使用預設中文語音:', chinese[0].name);
-        setSelectedVoice(chinese[0]);
-      }
+      if (zhiwei) setSelectedVoice(zhiwei);
+      else if (maleChinese) setSelectedVoice(maleChinese);
+      else if (googleMale) setSelectedVoice(googleMale);
+      else if (chinese.length > 0) setSelectedVoice(chinese[0]);
     };
     window.speechSynthesis.onvoiceschanged = loadVoices;
     loadVoices();
@@ -154,20 +116,16 @@ function App() {
 
   const speak = (rawText) => {
     window.speechSynthesis.cancel();
-
-    // 過濾掉按鈕指令
     let textToSpeak = rawText.split('///')[0];
-
-    // 過濾符號和特殊標記
     textToSpeak = textToSpeak
-      .replace(/✓\s*\*此回答基於專業知識庫\*/g, '') // 移除知識庫標記
-      .replace(/💡\s*AI 搜尋回答/g, '') // 移除 AI 搜尋標記
-      .replace(/【.*?】/g, '') // 移除【】內的文字
-      .replace(/\[.*?\]/g, '') // 移除 [source] 等
-      .replace(/source/gi, '') // 移除 source 文字
-      .replace(/\*\*/g, '') // 移除粗體標記 **
-      .replace(/✓|✗|●|►|•|💡/g, '') // 移除特殊符號
-      .replace(/\n{2,}/g, '\n') // 多個換行改成單個
+      .replace(/✓\s*\*此回答基於專業知識庫\*/g, '')
+      .replace(/💡\s*AI 搜尋回答/g, '')
+      .replace(/【.*?】/g, '')
+      .replace(/\[.*?\]/g, '')
+      .replace(/source/gi, '')
+      .replace(/\*\*/g, '')
+      .replace(/✓|✗|●|►|•|💡/g, '')
+      .replace(/\n{2,}/g, '\n')
       .trim();
 
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -181,35 +139,29 @@ function App() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // 中斷語音播放
   const stopSpeaking = () => {
     window.speechSynthesis.cancel();
     setIsDoctorSpeaking(false);
   };
 
-  const callAI = async (userPrompt, contextImage = null) => {
-    // 移除思考提示（在實際回應前）
+  const callAI = async (userPrompt) => {
+    // 移除思考提示
     const removeThinkingMessage = () => {
       setMessages(prev => prev.filter(msg => !msg.isThinking));
     };
 
-    // === 第一層快取：localStorage（最快，0ms）===
+    // === 第一層快取：localStorage (保持不變) ===
     const CACHE_KEY_PREFIX = 'inephro_cache_';
-    const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7天過期
-
-    const getCacheKey = (prompt) => {
-      return CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt));
-    };
-
+    const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000;
+    const getCacheKey = (prompt) => CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt));
     const cacheKey = getCacheKey(userPrompt);
+
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const { reply, timestamp, confidence } = JSON.parse(cached);
-        const age = Date.now() - timestamp;
-
-        if (age < CACHE_EXPIRY) {
-          console.log('⚡ localStorage 快取命中（0ms）');
+        if (Date.now() - timestamp < CACHE_EXPIRY) {
+          console.log('⚡ localStorage 快取命中');
           removeThinkingMessage();
           setMessages(prev => [...prev, { role: 'doctor', text: reply, confidence }]);
           speak(reply);
@@ -222,10 +174,9 @@ function App() {
       console.warn('讀取 localStorage 快取失敗:', e);
     }
 
-    // === 第二層：雲端 Edge Function（快取 + AI）===
+    // === 第二層：雲端 Edge Function (API) ===
     try {
-      console.log('🌐 調用 Edge Function（雲端快取 + AI）');
-      const startTime = Date.now();
+      console.log('🌐 調用 Edge Function');
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -233,60 +184,100 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          question: userPrompt
+          question: userPrompt,
+          threadId: threadId // 傳送 threadId
         })
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      const data = await response.json();
-      const responseTime = Date.now() - startTime;
-
-      if (data.fromCache) {
-        console.log(`✅ 雲端快取命中！(${responseTime}ms, 快取年齡: ${data.cacheAge}秒)`);
-      } else {
-        console.log(`✅ API 調用成功 (${responseTime}ms)`);
+      // 更新 threadId
+      const newThreadId = response.headers.get('X-Thread-Id');
+      if (newThreadId && newThreadId !== threadId) {
+        setThreadId(newThreadId);
+        localStorage.setItem('inephro_thread_id', newThreadId);
+        console.log('🔗 Thread ID updated:', newThreadId);
       }
 
-      const { reply, confidence } = data;
-
+      const contentType = response.headers.get('Content-Type');
       removeThinkingMessage();
-      setMessages(prev => [...prev, { role: 'doctor', text: reply, confidence }]);
-      speak(reply);
 
-      // 存入 localStorage 作為第一層快取
+      // 準備接收回應
+      setMessages(prev => [...prev, { role: 'doctor', text: '' }]);
+
+      let fullReply = "";
+      let confidence = 'medium';
+
+      if (contentType && contentType.includes('application/json')) {
+        // --- 情況 A: 快取命中 (JSON) ---
+        const data = await response.json();
+        fullReply = data.reply;
+        confidence = data.confidence;
+
+        console.log('✅ 雲端快取命中');
+        setMessages(prev => {
+          const newMsg = [...prev];
+          newMsg[newMsg.length - 1].text = fullReply;
+          newMsg[newMsg.length - 1].confidence = confidence;
+          return newMsg;
+        });
+
+      } else {
+        // --- 情況 B: 實時生成 (Stream) ---
+        console.log('🌊 接收串流回應...');
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          fullReply += chunk;
+
+          // 即時更新 UI
+          setMessages(prev => {
+            const newMsg = [...prev];
+            // 確保有訊息可以更新，避免並發問題
+            if (newMsg.length > 0) {
+              const lastMsg = newMsg[newMsg.length - 1];
+              lastMsg.text = (lastMsg.text || "") + chunk;
+            }
+            return newMsg;
+          });
+        }
+
+        // 簡易判斷是否有引用來源
+        if (fullReply.includes('【') && fullReply.includes('】')) {
+          confidence = 'high';
+        }
+      }
+
+      // 播放語音 (串流結束後)
+      speak(fullReply);
+
+      // 存入 localStorage
       try {
         localStorage.setItem(cacheKey, JSON.stringify({
-          reply,
+          reply: fullReply,
           confidence,
           timestamp: Date.now()
         }));
-      } catch (e) {
-        console.warn('localStorage 存儲失敗:', e);
-      }
-
-      return;
+      } catch (e) { console.warn('localStorage 存儲失敗:', e); }
 
     } catch (error) {
       console.error('AI 呼叫錯誤:', error);
       removeThinkingMessage();
 
       let errorMessage = "抱歉，系統發生錯誤。";
-
-      if (error.message?.includes('API key')) {
-        errorMessage = "API Key 無效，請檢查您的設定。";
-      } else if (error.message?.includes('quota') || error.message?.includes('rate_limit')) {
-        errorMessage = "API 使用額度已達上限，請稍後再試或檢查您的 OpenAI 帳戶。";
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        errorMessage = "網路連線錯誤，請檢查您的網路連線。";
-      } else if (error.status === 429) {
-        errorMessage = "請求過於頻繁，請稍後再試。";
-      } else if (error.status === 401) {
-        errorMessage = "API Key 驗證失敗，請確認 API Key 是否正確。";
-      }
+      // 錯誤處理邏輯
+      if (error.message?.includes('API key')) errorMessage = "API Key 無效，請檢查您的設定。";
+      else if (error.message?.includes('quota')) errorMessage = "API 使用額度已達上限，請稍後再試。";
+      else if (error.message?.includes('network')) errorMessage = "網路連線錯誤，請檢查您的網路連線。";
+      else if (error.message?.includes('429')) errorMessage = "請求過於頻繁，請稍後再試。";
 
       setMessages(prev => [...prev, { role: 'doctor', text: errorMessage }]);
       speak(errorMessage);
@@ -300,37 +291,22 @@ function App() {
     setMessages(prev => [...prev, { role: 'patient', text: question }]);
     setInput('');
     setIsDoctorSpeaking(false);
+    setMessages(prev => [...prev, { role: 'doctor', text: '🔍 正在思考中...', isThinking: true }]);
 
-    // 顯示「思考中」訊息
-    setMessages(prev => [...prev, { role: 'doctor', text: '🔍 正在查詢知識庫...', isThinking: true }]);
-
-    // 直接調用 AI，在 callAI 內部會移除思考提示
     callAI(question);
   };
 
-  // ★★★ 修改後的選單點擊處理 (整合隨機功能) ★★★
   const handleMenuClick = (keyOrKeyword) => {
     setActiveCategory(keyOrKeyword);
-
-    let title = "";
     let prompt = "";
 
-    // 判斷是「固定主題」還是「隨機關鍵字」
     if (TOPIC_DATA[keyOrKeyword]) {
-      // 是固定主題
-      const data = TOPIC_DATA[keyOrKeyword];
-      title = data.title;
-      prompt = data.prompt;
+      prompt = TOPIC_DATA[keyOrKeyword].prompt;
     } else {
-      // 是隨機關鍵字
-      title = keyOrKeyword;
       prompt = `請詳細介紹關於「${keyOrKeyword}」的腎臟科衛教知識，包含定義、症狀與照護重點。`;
     }
 
-    // 顯示「思考中」訊息（不顯示圖片）
     setMessages(prev => [...prev, { role: 'doctor', text: '🔍 正在查詢知識庫...', isThinking: true }]);
-
-    // 直接調用 AI，在 callAI 內部會移除思考提示
     callAI(prompt);
   };
 
@@ -360,49 +336,34 @@ function App() {
     const parts = rawText.split('///');
     let content = parts[0].trim();
 
-    // 過濾來源標記【4:5†source】【4:1†source】等
     content = content.replace(/【[^】]*source[^】]*】/g, '');
     content = content.replace(/\[[^\]]*source[^\]]*\]/g, '');
 
     let suggestions = [];
-
     if (parts[1]) {
       let rawSuggestions = parts[1].trim();
-      // 移除各種可能的引導文字
       rawSuggestions = rawSuggestions
         .replace(/後續建議.*[:：]/g, '')
-        .replace(/接下來您可能想知道的問題.*[:：]/g, '')
-        .replace(/延伸閱讀.*[:：]/g, '')
-        .replace(/相關問題.*[:：]/g, '')
-        .replace(/您可能還想了解.*[:：]/g, '')
         .replace(/建議.*[:：]/g, '')
         .replace(/｜/g, '|')
         .replace(/\n/g, '|');
-      suggestions = rawSuggestions.split('|').map(s => s.trim()).map(s => s.replace(/^\d+\.\s*/, '')).filter(s => s.length > 0);
+      suggestions = rawSuggestions.split('|').map(s => s.trim()).filter(s => s.length > 0);
     }
     return { content, suggestions };
   };
 
   return (
     <div className="main-container">
-      {/* 快速主題橫向滑動 (行動版) - 顯示所有主題 */}
+      {/* 快速主題橫向滑動 (行動版) */}
       <div className="quick-topics-container">
         <div className="quick-topics">
           {Object.keys(TOPIC_DATA).map(key => (
-            <div
-              key={key}
-              className={`quick-topic-chip ${activeCategory === key ? 'active' : ''}`}
-              onClick={() => handleMenuClick(key)}
-            >
+            <div key={key} className={`quick-topic-chip ${activeCategory === key ? 'active' : ''}`} onClick={() => handleMenuClick(key)}>
               ⭐ {TOPIC_DATA[key].title}
             </div>
           ))}
           {randomTopics.map((keyword, index) => (
-            <div
-              key={`quick-${index}`}
-              className={`quick-topic-chip ${activeCategory === keyword ? 'active' : ''}`}
-              onClick={() => handleMenuClick(keyword)}
-            >
+            <div key={`quick-${index}`} className={`quick-topic-chip ${activeCategory === keyword ? 'active' : ''}`} onClick={() => handleMenuClick(keyword)}>
               {keyword}
             </div>
           ))}
@@ -412,40 +373,23 @@ function App() {
       {/* 左欄：選單區 (桌面版) */}
       <div className="sidebar-menu">
         <div className="brand-title">iNephro 衛教諮詢室</div>
-
-        {/* 1. 固定精選主題 */}
         <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>📌 精選主題</div>
         {Object.keys(TOPIC_DATA).map(key => (
-          <div
-            key={key}
-            className={`menu-item ${activeCategory === key ? 'active' : ''}`}
-            onClick={() => handleMenuClick(key)}
-          >
+          <div key={key} className={`menu-item ${activeCategory === key ? 'active' : ''}`} onClick={() => handleMenuClick(key)}>
             ⭐ {TOPIC_DATA[key].title}
           </div>
         ))}
-
         <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '15px 0'}} />
-
-        {/* 2. 隨機熱搜主題 */}
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', paddingRight:'10px', marginBottom:'5px'}}>
            <div style={{fontSize:'12px', color:'#aaa', paddingLeft:'10px'}}>🎲 今日熱搜</div>
-           <button onClick={refreshTopics} style={{background:'none', border:'none', color:'#3498db', cursor:'pointer', fontSize:'12px'}}>
-             🔄 換一組
-           </button>
+           <button onClick={refreshTopics} style={{background:'none', border:'none', color:'#3498db', cursor:'pointer', fontSize:'12px'}}>🔄 換一組</button>
         </div>
-
         {randomTopics.map((keyword, index) => (
-          <div
-            key={index}
-            className={`menu-item ${activeCategory === keyword ? 'active' : ''}`}
-            onClick={() => handleMenuClick(keyword)}
-          >
+          <div key={index} className={`menu-item ${activeCategory === keyword ? 'active' : ''}`} onClick={() => handleMenuClick(keyword)}>
             📄 {keyword}
           </div>
         ))}
-
-        <div style={{marginTop: 'auto', fontSize: '12px', color: '#aaa', textAlign: 'center'}}>Dr. AI v2.2</div>
+        <div style={{marginTop: 'auto', fontSize: '12px', color: '#aaa', textAlign: 'center'}}>Dr. AI v2.3</div>
       </div>
 
       {/* 中欄：對話區 */}
@@ -455,29 +399,12 @@ function App() {
             const { content, suggestions } = parseMessage(msg.text);
             return (
               <div key={index} className={`message-wrapper ${msg.role}`}>
-                {msg.image && (
-                  <div className="message-image-container">
-                    <img
-                      src={msg.image}
-                      alt="衛教圖"
-                      className="chat-image"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentElement.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
                 <div className={`message ${msg.role}`}>
                   <div className="markdown-content">
                     {msg.isThinking ? (
                       <>
                         {content}
-                        <span className="thinking-animation">
-                          <span className="dot"></span>
-                          <span className="dot"></span>
-                          <span className="dot"></span>
-                        </span>
+                        <span className="thinking-animation"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span>
                       </>
                     ) : (
                       <ReactMarkdown>{content}</ReactMarkdown>
@@ -514,7 +441,6 @@ function App() {
 
       {/* 右欄：3D 醫師 (桌面版) */}
       <div className="right-panel">
-        {/* 語音選擇器 */}
         <div className="voice-selector">
           <label htmlFor="voice-select">🔊 語音選擇：</label>
           <select
@@ -525,25 +451,16 @@ function App() {
               if (voice) {
                 setSelectedVoice(voice);
                 localStorage.setItem('selectedVoiceName', voice.name);
-                console.log('✅ 語音已切換至:', voice.name);
               }
             }}
           >
             {availableVoices
-              .filter(v =>
-                v.lang.includes('zh') ||
-                v.lang.includes('CN') ||
-                v.lang.includes('TW') ||
-                v.lang.includes('nan')
-              )
+              .filter(v => v.lang.includes('zh') || v.lang.includes('CN') || v.lang.includes('TW') || v.lang.includes('nan'))
               .map(voice => (
-                <option key={voice.name} value={voice.name}>
-                  {voice.name} ({voice.lang})
-                </option>
+                <option key={voice.name} value={voice.name}>{voice.name} ({voice.lang})</option>
               ))}
           </select>
         </div>
-
         <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}</div>
         <div className="doctor-container">
           <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} />
@@ -552,11 +469,7 @@ function App() {
 
       {/* 右下角浮動 3D 醫師 (行動版) */}
       <div className={`doctor-floating ${isDoctorSpeaking ? 'speaking' : ''} ${isDoctorMinimized ? 'minimized' : ''}`}>
-        <button
-          className="doctor-close-btn"
-          onClick={() => setIsDoctorMinimized(!isDoctorMinimized)}
-          title={isDoctorMinimized ? '展開醫師' : '縮小醫師'}
-        >
+        <button className="doctor-close-btn" onClick={() => setIsDoctorMinimized(!isDoctorMinimized)}>
           {isDoctorMinimized ? '➕' : '➖'}
         </button>
         <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} isMobile={true} />
