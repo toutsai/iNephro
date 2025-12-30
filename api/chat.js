@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 // Edge Runtime 配置
 export const config = {
   runtime: 'edge',
+  maxDuration: 30, // 最長執行時間 30 秒（Pro 方案限制）
 };
 
 /**
@@ -118,9 +119,9 @@ async function callAssistantAPI(question, apiKey, assistantId) {
     assistant_id: assistantId
   });
 
-  // 4. 等待完成（使用 REST API 避免 SDK 問題）
+  // 4. 等待完成（優化輪詢以避免超時）
   let attempts = 0;
-  const maxAttempts = 30;
+  const maxAttempts = 40; // 40 次 x 500ms = 最多 20 秒
 
   while (attempts < maxAttempts) {
     const response = await fetch(
