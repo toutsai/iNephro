@@ -78,24 +78,21 @@ function parseExcel(filePath) {
 
   log(`✅ 找到工作表: ${sheetName}`, 'green');
 
-  // 轉換為 JSON
-  const rawData = XLSX.utils.sheet_to_json(worksheet);
+  // 轉換為 JSON，跳過第一列（說明文字）
+  const rawData = XLSX.utils.sheet_to_json(worksheet, { range: 1 });
 
   log(`📊 總共 ${rawData.length} 筆資料`, 'yellow');
 
-  // 顯示前 3 筆的欄位名稱，幫助除錯
+  // 顯示所有欄位名稱，幫助除錯
   if (rawData.length > 0) {
-    log('\n🔍 檢測到的欄位名稱:', 'cyan');
+    log('\n🔍 檢測到的欄位名稱 (顯示所有欄位):', 'cyan');
     const firstRow = rawData[0];
     const columns = Object.keys(firstRow);
     columns.forEach((col, idx) => {
-      if (idx < 15) {  // 只顯示前 15 個欄位
-        log(`  ${idx + 1}. ${col} = ${firstRow[col]}`, 'yellow');
-      }
+      const value = String(firstRow[col]).substring(0, 50); // 只顯示前 50 個字元
+      log(`  ${idx + 1}. ${col} = ${value}`, 'yellow');
     });
-    if (columns.length > 15) {
-      log(`  ... 還有 ${columns.length - 15} 個欄位`, 'yellow');
-    }
+    log(`\n總共 ${columns.length} 個欄位`, 'cyan');
   }
 
   return rawData;
