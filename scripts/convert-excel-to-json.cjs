@@ -83,18 +83,6 @@ function parseExcel(filePath) {
 
   log(`📊 總共 ${rawData.length} 筆資料`, 'yellow');
 
-  // 顯示所有欄位名稱，幫助除錯
-  if (rawData.length > 0) {
-    log('\n🔍 檢測到的欄位名稱 (顯示所有欄位):', 'cyan');
-    const firstRow = rawData[0];
-    const columns = Object.keys(firstRow);
-    columns.forEach((col, idx) => {
-      const value = String(firstRow[col]).substring(0, 50); // 只顯示前 50 個字元
-      log(`  ${idx + 1}. ${col} = ${value}`, 'yellow');
-    });
-    log(`\n總共 ${columns.length} 個欄位`, 'cyan');
-  }
-
   return rawData;
 }
 
@@ -107,21 +95,21 @@ function convertToNutritionFormat(rawData) {
 
   rawData.forEach((row, index) => {
     try {
-      // 根據 Excel 欄位名稱映射（衛福部資料庫格式）
+      // 根據衛福部食品營養成分資料庫 2024 欄位名稱映射
       const food = {
-        id: row['整合編碼'] || row['樣品編號'] || `FOOD${String(index + 1).padStart(6, '0')}`,
-        name: row['樣品名稱'] || row['食品名稱'] || '',
-        category: row['食品分類'] || row['俗名'] || '其他',
-        calories: parseFloat(row['熱量(kcal)'] || row['熱量'] || 0),
-        water: parseFloat(row['水分(g)'] || row['水分'] || 0),
-        protein: parseFloat(row['粗蛋白(g)'] || row['蛋白質'] || 0),
-        fat: parseFloat(row['粗脂肪(g)'] || row['脂肪'] || 0),
-        carbs: parseFloat(row['碳水化合物(g)'] || row['總碳水化合物'] || 0),
-        sodium: parseFloat(row['鈉(mg)'] || row['鈉'] || 0),
-        potassium: parseFloat(row['鉀(mg)'] || row['鉀'] || 0),
-        phosphorus: parseFloat(row['磷(mg)'] || row['磷'] || 0),
-        calcium: parseFloat(row['鈣(mg)'] || row['鈣'] || 0),
-        magnesium: parseFloat(row['鎂(mg)'] || row['鎂'] || 0)
+        id: row['整合編號'] || `FOOD${String(index + 1).padStart(6, '0')}`,
+        name: row['樣品名稱'] || '',
+        category: row['食品分類'] || '其他',
+        calories: parseFloat(row['熱量(kcal)'] || 0),
+        water: parseFloat(row['水分(g)'] || 0),
+        protein: parseFloat(row['粗蛋白(g)'] || 0),
+        fat: parseFloat(row['粗脂肪(g)'] || 0),
+        carbs: parseFloat(row['總碳水化合物(g)'] || 0),
+        sodium: parseFloat(row['鈉(mg)'] || 0),
+        potassium: parseFloat(row['鉀(mg)'] || 0),
+        phosphorus: parseFloat(row['磷(mg)'] || 0),
+        calcium: parseFloat(row['鈣(mg)'] || 0),
+        magnesium: parseFloat(row['鎂(mg)'] || 0)
       };
 
       // 跳過沒有名稱的資料
