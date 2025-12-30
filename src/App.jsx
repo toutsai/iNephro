@@ -70,6 +70,11 @@ function App() {
   const [googleVoice, setGoogleVoice] = useState('tw-male-1'); // Google Cloud TTS 語音
   const audioRef = useRef(null); // 用於播放雲端 TTS 音訊
 
+  // 營養查詢相關 State
+  const [nutritionQuery, setNutritionQuery] = useState('');
+  const [nutritionResults, setNutritionResults] = useState(null);
+  const [isSearchingNutrition, setIsSearchingNutrition] = useState(false);
+
   // --- 初始化與隨機邏輯 ---
   
   // ★★★ 關鍵修改：用 useCallback 包起來 ★★★
@@ -345,8 +350,8 @@ function App() {
     if (isRecording) { setIsRecording(false); return; }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = 'zh-TW'; 
-    recognition.interimResults = true; 
+    recognition.lang = 'zh-TW';
+    recognition.interimResults = true;
     recognition.continuous = false;
 
     recognition.onstart = () => { setIsRecording(true); setInput('正在聆聽...'); };
@@ -356,6 +361,33 @@ function App() {
     };
     recognition.onend = () => setIsRecording(false);
     recognition.start();
+  };
+
+  // 營養查詢處理函數
+  const handleNutritionSearch = async (query = null) => {
+    const searchQuery = query || nutritionQuery;
+    if (!searchQuery.trim()) return;
+
+    setIsSearchingNutrition(true);
+    setNutritionResults(null);
+
+    try {
+      const response = await fetch(`/api/nutrition?q=${encodeURIComponent(searchQuery)}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '查詢失敗');
+      }
+
+      setNutritionResults(data);
+    } catch (error) {
+      console.error('營養查詢錯誤:', error);
+      setNutritionResults({
+        error: error.message || '查詢失敗，請稍後再試'
+      });
+    } finally {
+      setIsSearchingNutrition(false);
+    }
   };
 
   const parseMessage = (rawText) => {
@@ -432,7 +464,85 @@ function App() {
 
         <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '15px 0'}} />
 
-        {/* 2. 隨機熱搜主題 */}
+        {/* 2. 營養查詢 */}
+        <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>🥗 營養查詢</div>
+        <div className="nutrition-search-box">
+          <input
+            type="text"
+            className="nutrition-input"
+            placeholder="輸入食物名稱 (例：香蕉)"
+            value={nutritionQuery}
+            onChange={(e) => setNutritionQuery(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleNutritionSearch()}
+          />
+          <button
+            className="nutrition-search-btn"
+            onClick={() => handleNutritionSearch()}
+            disabled={isSearchingNutrition}
+          >
+            {isSearchingNutrition ? '⏳' : '🔍'}
+          </button>
+        </div>
+
+        {/* 營養查詢結果 */}
+        {nutritionResults && (
+          <div className="nutrition-results">
+            {nutritionResults.error ? (
+              <div className="nutrition-error">❌ {nutritionResults.error}</div>
+            ) : nutritionResults.count === 0 ? (
+              <div className="nutrition-empty">😢 找不到「{nutritionResults.query}」<br/>請嘗試其他關鍵字</div>
+            ) : (
+              <div className="nutrition-items">
+                {nutritionResults.results.map((food, idx) => (
+                  <div key={idx} className="nutrition-item">
+                    <div className="nutrition-item-header">
+                      <strong>{food.name}</strong>
+                      <span className="nutrition-category">{food.category}</span>
+                    </div>
+                    <div className="nutrition-values">
+                      <div className="nutrition-value">
+                        <span className="label">鈉</span>
+                        <span className="value">{food.sodium} mg</span>
+                      </div>
+                      <div className="nutrition-value">
+                        <span className="label">鉀</span>
+                        <span className="value">{food.potassium} mg</span>
+                      </div>
+                      <div className="nutrition-value">
+                        <span className="label">磷</span>
+                        <span className="value">{food.phosphorus} mg</span>
+                      </div>
+                      <div className="nutrition-value">
+                        <span className="label">鈣</span>
+                        <span className="value">{food.calcium} mg</span>
+                      </div>
+                      <div className="nutrition-value">
+                        <span className="label">鎂</span>
+                        <span className="value">{food.magnesium} mg</span>
+                      </div>
+                    </div>
+                    {food.warnings && food.warnings.length > 0 && (
+                      <div className="nutrition-warnings">
+                        {food.warnings.map((warning, wIdx) => (
+                          <div key={wIdx} className={`warning ${warning.level}`}>
+                            {warning.icon} {warning.message}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div className="nutrition-note">
+                  💡 數值為每 100g 可食部分
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '15px 0'}} />
+
+        {/* 3. 隨機熱搜主題 */}
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', paddingRight:'10px', marginBottom:'5px'}}>
            <div style={{fontSize:'12px', color:'#aaa', paddingLeft:'10px'}}>🎲 今日熱搜</div>
            <button onClick={refreshTopics} style={{background:'none', border:'none', color:'#3498db', cursor:'pointer', fontSize:'12px'}}>

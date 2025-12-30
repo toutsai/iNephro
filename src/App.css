@@ -629,3 +629,171 @@ body {
     margin-bottom: 20px;
   }
 }
+/* === 營養查詢樣式 === */
+.nutrition-search-box {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.nutrition-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.nutrition-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.nutrition-input:focus {
+  border-color: #3498db;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.nutrition-search-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #3498db;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.nutrition-search-btn:hover:not(:disabled) {
+  background: #2980b9;
+  transform: scale(1.05);
+}
+
+.nutrition-search-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nutrition-results {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.nutrition-error,
+.nutrition-empty {
+  padding: 15px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+}
+
+.nutrition-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nutrition-item {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nutrition-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.nutrition-item-header strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.nutrition-category {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.nutrition-values {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.nutrition-value {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.nutrition-value .label {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+}
+
+.nutrition-value .value {
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+.nutrition-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.nutrition-warnings .warning {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.warning.danger {
+  background: rgba(244, 67, 54, 0.2);
+  border: 1px solid #f44336;
+  color: #ffcdd2;
+}
+
+.warning.warning {
+  background: rgba(255, 152, 0, 0.2);
+  border: 1px solid #ff9800;
+  color: #ffe0b2;
+}
+
+.warning.caution {
+  background: rgba(33, 150, 243, 0.2);
+  border: 1px solid #2196F3;
+  color: #bbdefb;
+}
+
+.nutrition-note {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
