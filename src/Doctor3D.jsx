@@ -14,12 +14,6 @@ function DoctorModel({ isSpeaking }) {
   const teethMeshRef = useRef(null);
   const headBoneRef = useRef(null);
   const spineRef = useRef(null);
-  const eyeLeftRef = useRef(null);   // 左眼 Mesh
-  const eyeRightRef = useRef(null);  // 右眼 Mesh
-
-  // 眨眼控制
-  const blinkTimerRef = useRef(0);
-  const nextBlinkTimeRef = useRef(2);
 
   useEffect(() => {
     console.log('=== 🔍 3D 模型完整掃描開始 ===');
@@ -50,16 +44,6 @@ function DoctorModel({ isSpeaking }) {
           }
         } else {
           console.log(`  ❌ 無 Morph Targets`);
-        }
-
-        // 儲存眼睛 Mesh 引用（用於 Scale 眨眼動畫）
-        if (child.name === 'EyeLeft') {
-          eyeLeftRef.current = child;
-          console.log('✅ 找到左眼 Mesh:', child.name);
-        }
-        if (child.name === 'EyeRight') {
-          eyeRightRef.current = child;
-          console.log('✅ 找到右眼 Mesh:', child.name);
         }
       }
 
@@ -92,39 +76,6 @@ function DoctorModel({ isSpeaking }) {
 
     if (ref.current) {
       ref.current.position.y = BASE_Y + Math.sin(t) * 0.05;
-    }
-
-    // --- 眨眼動畫（使用 Scale 縮放眼睛）---
-    if (eyeLeftRef.current && eyeRightRef.current) {
-      // 眨眼計時器
-      blinkTimerRef.current += state.clock.getDelta();
-
-      // 當時間到達下次眨眼時間
-      if (blinkTimerRef.current >= nextBlinkTimeRef.current) {
-        // 重置計時器
-        blinkTimerRef.current = 0;
-        // 設定下次眨眼時間（說話時 2-4秒，不說話時 3-6秒）
-        const minInterval = isSpeaking ? 2 : 3;
-        const maxInterval = isSpeaking ? 4 : 6;
-        nextBlinkTimeRef.current = minInterval + Math.random() * (maxInterval - minInterval);
-      }
-
-      // 眨眼動畫（快速、自然的眨眼）
-      const blinkProgress = blinkTimerRef.current;
-      let eyeScaleY = 1; // 1 = 睜開, 0.5 = 半閉（更自然）
-
-      // 前 0.08 秒：眼睛閉上（更快）
-      if (blinkProgress < 0.08) {
-        eyeScaleY = 1 - (blinkProgress / 0.08) * 0.5; // 從 1 縮到 0.5（不要太扁）
-      }
-      // 0.08 - 0.16 秒：眼睛睜開（更快）
-      else if (blinkProgress < 0.16) {
-        eyeScaleY = 0.5 + ((blinkProgress - 0.08) / 0.08) * 0.5; // 從 0.5 恢復到 1
-      }
-
-      // 套用縮放到兩隻眼睛
-      eyeLeftRef.current.scale.y = eyeScaleY;
-      eyeRightRef.current.scale.y = eyeScaleY;
     }
 
     // --- 說話時的動畫 ---
