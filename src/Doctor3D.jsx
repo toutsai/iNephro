@@ -103,23 +103,23 @@ function DoctorModel({ isSpeaking }) {
       if (blinkTimerRef.current >= nextBlinkTimeRef.current) {
         // 重置計時器
         blinkTimerRef.current = 0;
-        // 設定下次眨眼時間（說話時 1.5-3秒，不說話時 2-5秒）
-        const minInterval = isSpeaking ? 1.5 : 2;
-        const maxInterval = isSpeaking ? 3 : 5;
+        // 設定下次眨眼時間（說話時 2-4秒，不說話時 3-6秒）
+        const minInterval = isSpeaking ? 2 : 3;
+        const maxInterval = isSpeaking ? 4 : 6;
         nextBlinkTimeRef.current = minInterval + Math.random() * (maxInterval - minInterval);
       }
 
-      // 眨眼動畫（快速閉眼再睜開）
+      // 眨眼動畫（快速、自然的眨眼）
       const blinkProgress = blinkTimerRef.current;
-      let eyeScaleY = 1; // 1 = 睜開, 0.1 = 閉上
+      let eyeScaleY = 1; // 1 = 睜開, 0.5 = 半閉（更自然）
 
-      // 前 0.1 秒：眼睛閉上（縮小 Y 軸）
-      if (blinkProgress < 0.1) {
-        eyeScaleY = 1 - (blinkProgress / 0.1) * 0.9; // 從 1 縮到 0.1
+      // 前 0.08 秒：眼睛閉上（更快）
+      if (blinkProgress < 0.08) {
+        eyeScaleY = 1 - (blinkProgress / 0.08) * 0.5; // 從 1 縮到 0.5（不要太扁）
       }
-      // 0.1 - 0.2 秒：眼睛睜開（恢復 Y 軸）
-      else if (blinkProgress < 0.2) {
-        eyeScaleY = 0.1 + ((blinkProgress - 0.1) / 0.1) * 0.9; // 從 0.1 恢復到 1
+      // 0.08 - 0.16 秒：眼睛睜開（更快）
+      else if (blinkProgress < 0.16) {
+        eyeScaleY = 0.5 + ((blinkProgress - 0.08) / 0.08) * 0.5; // 從 0.5 恢復到 1
       }
 
       // 套用縮放到兩隻眼睛
