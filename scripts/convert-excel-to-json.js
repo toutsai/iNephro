@@ -12,10 +12,13 @@
  *   node scripts/convert-excel-to-json.js public/nutrition.xlsx
  */
 
-import XLSX from 'xlsx';
+import { createRequire } from 'module';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+const require = createRequire(import.meta.url);
+const XLSX = require('xlsx');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
