@@ -36,6 +36,7 @@ async function loadNutritionData(request) {
 // 俗名對照表（常見別名 → 正式名稱關鍵字）
 const COMMON_NAME_MAP = {
   // 水果類
+  '香蕉': ['北蕉', '蕉'],
   '芭樂': ['番石榴'],
   '柳丁': ['柳橙'],
   '橘子': ['柑橘', '橘'],

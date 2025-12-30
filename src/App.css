@@ -567,19 +567,6 @@ body {
     display: none;
   }
 
-  /* 顯示行動版營養查詢浮動按鈕 */
-  .nutrition-floating-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    bottom: 140px; /* 提高避免擋住輸入框 */
-  }
-
-  /* 顯示行動版營養查詢彈窗 */
-  .nutrition-modal-overlay {
-    display: flex;
-  }
-
   /* 隱藏桌面版右側 3D 醫師 */
   .right-panel {
     display: none;
@@ -938,4 +925,18 @@ body {
 .nutrition-modal-body .nutrition-items {
   max-height: calc(80vh - 200px);
   overflow-y: auto;
+}
+
+/* ===== 行動版營養查詢顯示設定 (必須放在基礎樣式之後) ===== */
+@media (max-width: 768px) {
+  .nutrition-floating-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    bottom: 140px;
+  }
+
+  .nutrition-modal-overlay {
+    display: flex;
+  }
 }
