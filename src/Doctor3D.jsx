@@ -68,6 +68,9 @@ function DoctorModel({ isSpeaking }) {
         const minInterval = isSpeaking ? 1.5 : 2;
         const maxInterval = isSpeaking ? 3 : 5;
         nextBlinkTimeRef.current = minInterval + Math.random() * (maxInterval - minInterval);
+
+        // 除錯：顯示眨眼觸發
+        console.log('👁️ 眨眼觸發！下次眨眼時間:', nextBlinkTimeRef.current.toFixed(2), '秒後');
       }
 
       // 眨眼動畫（快速閉眼再睜開）
@@ -85,12 +88,24 @@ function DoctorModel({ isSpeaking }) {
 
       // 套用眨眼（嘗試不同的 morph target 名稱）
       const blinkNames = ['eyeBlinkLeft', 'eyeBlinkRight', 'eyesClosed', 'blink'];
+      let appliedBlink = false;
+
       blinkNames.forEach(name => {
         const idx = dict[name];
         if (idx !== undefined) {
           faceMeshRef.current.morphTargetInfluences[idx] = blinkValue;
+          if (blinkValue > 0 && !appliedBlink) {
+            appliedBlink = true;
+            console.log(`👁️ 套用眨眼: ${name}, 值: ${blinkValue.toFixed(2)}`);
+          }
         }
       });
+
+      // 如果沒有找到任何眨眼 morph target，顯示警告（只顯示一次）
+      if (!appliedBlink && blinkProgress === 0 && !blinkTimerRef.warnedOnce) {
+        console.warn('⚠️ 未找到眨眼 morph targets，可用的有:', Object.keys(dict));
+        blinkTimerRef.warnedOnce = true;
+      }
     }
 
     // --- 說話時的動畫 ---
