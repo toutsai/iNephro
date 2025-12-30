@@ -31,3 +31,4 @@ dist-ssr
 
 # Scripts logs
 scripts/warmup-log.json
+*.xlsx
