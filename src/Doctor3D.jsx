@@ -14,6 +14,8 @@ function DoctorModel({ isSpeaking }) {
   const teethMeshRef = useRef(null);
   const headBoneRef = useRef(null);
   const spineRef = useRef(null);
+  const eyeLeftRef = useRef(null);   // 左眼 Mesh
+  const eyeRightRef = useRef(null);  // 右眼 Mesh
 
   // 眨眼控制
   const blinkTimerRef = useRef(0);
@@ -49,6 +51,16 @@ function DoctorModel({ isSpeaking }) {
         } else {
           console.log(`  ❌ 無 Morph Targets`);
         }
+
+        // 儲存眼睛 Mesh 引用（用於 Scale 眨眼動畫）
+        if (child.name === 'EyeLeft') {
+          eyeLeftRef.current = child;
+          console.log('✅ 找到左眼 Mesh:', child.name);
+        }
+        if (child.name === 'EyeRight') {
+          eyeRightRef.current = child;
+          console.log('✅ 找到右眼 Mesh:', child.name);
+        }
       }
 
       // 收集所有骨骼
@@ -82,10 +94,8 @@ function DoctorModel({ isSpeaking }) {
       ref.current.position.y = BASE_Y + Math.sin(t) * 0.05;
     }
 
-    // --- 眨眼動畫（自動、隨機） ---
-    if (faceMeshRef.current) {
-      const dict = faceMeshRef.current.morphTargetDictionary;
-
+    // --- 眨眼動畫（使用 Scale 縮放眼睛）---
+    if (eyeLeftRef.current && eyeRightRef.current) {
       // 眨眼計時器
       blinkTimerRef.current += state.clock.getDelta();
 
@@ -97,44 +107,24 @@ function DoctorModel({ isSpeaking }) {
         const minInterval = isSpeaking ? 1.5 : 2;
         const maxInterval = isSpeaking ? 3 : 5;
         nextBlinkTimeRef.current = minInterval + Math.random() * (maxInterval - minInterval);
-
-        // 除錯：顯示眨眼觸發
-        console.log('👁️ 眨眼觸發！下次眨眼時間:', nextBlinkTimeRef.current.toFixed(2), '秒後');
       }
 
       // 眨眼動畫（快速閉眼再睜開）
       const blinkProgress = blinkTimerRef.current;
-      let blinkValue = 0;
+      let eyeScaleY = 1; // 1 = 睜開, 0.1 = 閉上
 
-      // 前 0.1 秒：眼睛閉上
+      // 前 0.1 秒：眼睛閉上（縮小 Y 軸）
       if (blinkProgress < 0.1) {
-        blinkValue = blinkProgress / 0.1;
+        eyeScaleY = 1 - (blinkProgress / 0.1) * 0.9; // 從 1 縮到 0.1
       }
-      // 0.1 - 0.2 秒：眼睛睜開
+      // 0.1 - 0.2 秒：眼睛睜開（恢復 Y 軸）
       else if (blinkProgress < 0.2) {
-        blinkValue = 1 - (blinkProgress - 0.1) / 0.1;
+        eyeScaleY = 0.1 + ((blinkProgress - 0.1) / 0.1) * 0.9; // 從 0.1 恢復到 1
       }
 
-      // 套用眨眼（嘗試不同的 morph target 名稱）
-      const blinkNames = ['eyeBlinkLeft', 'eyeBlinkRight', 'eyesClosed', 'blink'];
-      let appliedBlink = false;
-
-      blinkNames.forEach(name => {
-        const idx = dict[name];
-        if (idx !== undefined) {
-          faceMeshRef.current.morphTargetInfluences[idx] = blinkValue;
-          if (blinkValue > 0 && !appliedBlink) {
-            appliedBlink = true;
-            console.log(`👁️ 套用眨眼: ${name}, 值: ${blinkValue.toFixed(2)}`);
-          }
-        }
-      });
-
-      // 如果沒有找到任何眨眼 morph target，顯示警告（只顯示一次）
-      if (!appliedBlink && blinkProgress === 0 && !blinkTimerRef.warnedOnce) {
-        console.warn('⚠️ 未找到眨眼 morph targets，可用的有:', Object.keys(dict));
-        blinkTimerRef.warnedOnce = true;
-      }
+      // 套用縮放到兩隻眼睛
+      eyeLeftRef.current.scale.y = eyeScaleY;
+      eyeRightRef.current.scale.y = eyeScaleY;
     }
 
     // --- 說話時的動畫 ---
