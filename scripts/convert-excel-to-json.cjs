@@ -30,6 +30,14 @@ function log(message, color = 'reset') {
   console.log(`${colors[color]}${message}${colors.reset}`);
 }
 
+// 判斷鉀含量等級（依據 NKF 美國國家腎臟基金會標準）
+function getPotassiumLevel(potassium) {
+  if (potassium > 300) return 'very_high';  // 非常高鉀
+  if (potassium > 200) return 'high';        // 高鉀
+  if (potassium > 100) return 'medium';      // 中等鉀
+  return 'low';                               // 低鉀
+}
+
 // 判斷腎友警告
 function determineKidneyWarning(food) {
   const potassium = parseFloat(food.potassium) || 0;
@@ -41,24 +49,35 @@ function determineKidneyWarning(food) {
     return 'carambola';
   }
 
-  // 同時高鉀高磷
-  if (potassium >= 300 && phosphorus >= 250) {
-    return 'both';
+  // 鉀含量等級
+  const potassiumLevel = getPotassiumLevel(potassium);
+
+  // 非常高鉀（> 300 mg）
+  if (potassiumLevel === 'very_high') {
+    if (phosphorus >= 250) return 'very_high_k_high_p';  // 非常高鉀 + 高磷
+    return 'very_high_k';
   }
 
-  // 高鉀
-  if (potassium >= 300) {
-    return 'potassium';
+  // 高鉀（200-300 mg）
+  if (potassiumLevel === 'high') {
+    if (phosphorus >= 250) return 'high_k_high_p';  // 高鉀 + 高磷
+    return 'high_k';
+  }
+
+  // 中等鉀（100-200 mg）
+  if (potassiumLevel === 'medium') {
+    if (phosphorus >= 250) return 'medium_k_high_p';  // 中等鉀 + 高磷
+    return 'medium_k';
   }
 
   // 高磷
   if (phosphorus >= 250) {
-    return 'phosphorus';
+    return 'high_p';
   }
 
   // 高鈉
   if (sodium >= 100) {
-    return 'sodium';
+    return 'high_na';
   }
 
   return null;
@@ -99,6 +118,7 @@ function convertToNutritionFormat(rawData) {
       const food = {
         id: row['整合編號'] || `FOOD${String(index + 1).padStart(6, '0')}`,
         name: row['樣品名稱'] || '',
+        alias: row['俗名'] || '',  // 加入俗名，方便搜尋
         category: row['食品分類'] || '其他',
         calories: parseFloat(row['熱量(kcal)'] || 0),
         water: parseFloat(row['水分(g)'] || 0),

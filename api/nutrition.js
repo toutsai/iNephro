@@ -174,11 +174,20 @@ function getPotassiumLevel(potassium) {
 }
 
 /**
- * 判斷食物是否有腎友警告
+ * 判斷鉀含量等級（依據 NKF 美國國家腎臟基金會標準）
+ */
+function getPotassiumLevel(potassium) {
+  if (potassium > 300) return { level: 'very_high', label: '非常高鉀', icon: '🔴' };
+  if (potassium > 200) return { level: 'high', label: '高鉀', icon: '🟠' };
+  if (potassium > 100) return { level: 'medium', label: '中等鉀', icon: '🟡' };
+  return { level: 'low', label: '低鉀', icon: '🟢' };
+}
+
+/**
+ * 判斷食物是否有腎友警告（使用 NKF 標準）
  */
 function getKidneyWarnings(food) {
   const warnings = [];
-  const thresholds = nutritionData.warningThresholds;
 
   // 特殊警告：楊桃（含神經毒素）
   if (food.kidneyWarning === 'carambola') {
@@ -229,8 +238,8 @@ function getKidneyWarnings(food) {
     });
   }
 
-  // 高磷警告
-  if (food.phosphorus >= thresholds.phosphorus.high) {
+  // 高磷警告 (>250 mg)
+  if (food.phosphorus >= 250) {
     warnings.push({
       level: 'warning',
       type: 'phosphorus',
@@ -240,8 +249,8 @@ function getKidneyWarnings(food) {
     });
   }
 
-  // 高鈉警告
-  if (food.sodium >= thresholds.sodium.high) {
+  // 高鈉警告 (>100 mg)
+  if (food.sodium >= 100) {
     warnings.push({
       level: 'warning',
       type: 'sodium',

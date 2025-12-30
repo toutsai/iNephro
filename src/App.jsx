@@ -465,7 +465,7 @@ function App() {
         <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '10px 0'}} />
 
         {/* 2. 營養查詢 */}
-        <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>🥗 營養查詢</div>
+        <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>🥗 營養查詢(源自食藥署食品營養成分資料庫)</div>
         <div className="nutrition-search-box">
           <input
             type="text"
@@ -497,6 +497,7 @@ function App() {
                   <div key={idx} className="nutrition-item">
                     <div className="nutrition-item-header">
                       <strong>{food.name}</strong>
+                      {food.alias && <span className="nutrition-alias">({food.alias})</span>}
                       <span className="nutrition-category">{food.category}</span>
                     </div>
                     <div className="nutrition-values">

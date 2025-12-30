@@ -730,6 +730,13 @@ body {
   font-size: 14px;
 }
 
+.nutrition-alias {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  margin-left: 6px;
+}
+
 .nutrition-category {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
