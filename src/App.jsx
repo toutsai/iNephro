@@ -90,6 +90,7 @@ function App() {
   useEffect(() => {
     const loadVoices = () => {
       const all = window.speechSynthesis.getVoices();
+      console.log('🔍 偵測到的語音列表:', all.map(v => `${v.name} (${v.lang})`));
 
       const chinese = all.filter(v =>
         v.lang.includes('zh') ||
@@ -98,16 +99,31 @@ function App() {
         v.lang.includes('nan')
       );
 
-      // 強制使用志偉語音，若無則使用其他中文男聲
+      // 常見女聲名字黑名單
+      const femaleNames = ['ting-ting', 'sin-ji', 'mei-jia', 'ya-ling', 'female', '女'];
+
+      // 1. 優先：志偉語音
       const zhiwei = chinese.find(v =>
         v.name.toLowerCase().includes('zhiwei') ||
         v.name.includes('志偉')
       );
 
-      const maleChinese = chinese.find(v =>
-        v.name.toLowerCase().includes('male') ||
-        v.name.includes('男')
-      );
+      // 2. 次選：明確標註男聲
+      const maleChinese = chinese.find(v => {
+        const lowerName = v.name.toLowerCase();
+        return (
+          lowerName.includes('male') ||
+          v.name.includes('男') ||
+          lowerName.includes('yunyang') ||
+          lowerName.includes('云揚')
+        );
+      });
+
+      // 3. 備選：排除女聲後的第一個中文語音
+      const notFemale = chinese.find(v => {
+        const lowerName = v.name.toLowerCase();
+        return !femaleNames.some(fn => lowerName.includes(fn));
+      });
 
       if (zhiwei) {
         console.log('✅ 使用志偉語音:', zhiwei.name);
@@ -115,8 +131,11 @@ function App() {
       } else if (maleChinese) {
         console.log('✅ 使用中文男聲:', maleChinese.name);
         setSelectedVoice(maleChinese);
+      } else if (notFemale) {
+        console.log('⚠️ 使用非女聲的中文語音:', notFemale.name);
+        setSelectedVoice(notFemale);
       } else if (chinese.length > 0) {
-        console.log('⚠️ 使用預設中文語音:', chinese[0].name);
+        console.log('⚠️ 使用任意中文語音（可能為女聲）:', chinese[0].name);
         setSelectedVoice(chinese[0]);
       }
     };
@@ -212,8 +231,18 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        // 檢查回應是否為 JSON 格式
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        } else {
+          // HTML 錯誤頁面（如 504 Gateway Timeout）
+          if (response.status === 504) {
+            throw new Error('TIMEOUT');
+          }
+          throw new Error(`HTTP ${response.status}`);
+        }
       }
 
       const data = await response.json();
@@ -250,7 +279,9 @@ function App() {
 
       let errorMessage = "抱歉，系統發生錯誤。";
 
-      if (error.message?.includes('API key')) {
+      if (error.message === 'TIMEOUT') {
+        errorMessage = "⏱️ 系統處理時間過長，請稍後再試。您也可以嘗試簡化問題內容。";
+      } else if (error.message?.includes('API key')) {
         errorMessage = "API Key 無效，請檢查您的設定。";
       } else if (error.message?.includes('quota') || error.message?.includes('rate_limit')) {
         errorMessage = "API 使用額度已達上限，請稍後再試或檢查您的 OpenAI 帳戶。";
