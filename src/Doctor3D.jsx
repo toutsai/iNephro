@@ -63,7 +63,7 @@ function DoctorModel({ isSpeaking }) {
       // 2. 頭部自然轉動（左右搖擺）
       if (headBoneRef.current) {
         headBoneRef.current.rotation.y = Math.sin(t * 0.5) * 0.15; // 左右轉動 ±8.6度
-        headBoneRef.current.rotation.x = Math.sin(t * 0.3) * 0.05; // 上下點頭 ±2.9度
+        headBoneRef.current.rotation.x = Math.sin(t * 0.3) * 0.10; // 上下點頭 ±5.7度
       }
 
       // 3. 身體微微擺動
