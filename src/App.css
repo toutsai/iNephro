@@ -796,6 +796,18 @@ body {
   color: #bbdefb;
 }
 
+.warning.success {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid #4CAF50;
+  color: #c8e6c9;
+}
+
+.warning.info {
+  background: rgba(255, 235, 59, 0.2);
+  border: 1px solid #FFEB3B;
+  color: #fff9c4;
+}
+
 .nutrition-note {
   margin-top: 10px;
   padding-top: 10px;

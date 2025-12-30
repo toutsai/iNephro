@@ -533,7 +533,7 @@ function App() {
                   </div>
                 ))}
                 <div className="nutrition-note">
-                  💡 數值為每 100g 可食部分
+                  💡 數值為每 100g 可食部分 (源自食品營養成分資料庫)
                 </div>
               </div>
             )}

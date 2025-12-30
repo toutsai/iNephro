@@ -34888,8 +34888,13 @@
   ],
   "warningThresholds": {
     "potassium": {
-      "high": 300,
-      "note": "鉀含量 > 300 mg/100g 視為高鉀食物，腎友需限量"
+      "source": "美國國家腎臟基金會 (National Kidney Foundation, NKF)",
+      "levels": {
+        "low": { "max": 100, "label": "低鉀食品", "note": "鉀含量 <100 mg/100g，腎友可安心食用" },
+        "medium": { "min": 100, "max": 200, "label": "中等鉀含量", "note": "鉀含量 100-200 mg/100g，適量食用" },
+        "high": { "min": 200, "max": 300, "label": "高鉀食品", "note": "鉀含量 200-300 mg/100g，腎友需限量" },
+        "veryHigh": { "min": 300, "label": "非常高鉀食品", "note": "鉀含量 >300 mg/100g，腎友應避免食用" }
+      }
     },
     "phosphorus": {
       "high": 250,
