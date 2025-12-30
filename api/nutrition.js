@@ -10,8 +10,28 @@ export const config = {
   runtime: 'edge',
 };
 
-// 載入營養資料庫
-import nutritionData from '../public/nutrition-data.json' assert { type: 'json' };
+// 快取營養資料庫（避免每次請求都重新載入）
+let nutritionDataCache = null;
+
+/**
+ * 載入營養資料庫（使用 fetch，支援快取）
+ */
+async function loadNutritionData(request) {
+  if (nutritionDataCache) {
+    return nutritionDataCache;
+  }
+
+  // 從 public 目錄載入 JSON
+  const baseUrl = new URL(request.url).origin;
+  const response = await fetch(`${baseUrl}/nutrition-data.json`);
+
+  if (!response.ok) {
+    throw new Error('無法載入營養資料庫');
+  }
+
+  nutritionDataCache = await response.json();
+  return nutritionDataCache;
+}
 
 // 俗名對照表（常見別名 → 正式名稱關鍵字）
 const COMMON_NAME_MAP = {
@@ -174,16 +194,6 @@ function getPotassiumLevel(potassium) {
 }
 
 /**
- * 判斷鉀含量等級（依據 NKF 美國國家腎臟基金會標準）
- */
-function getPotassiumLevel(potassium) {
-  if (potassium > 300) return { level: 'very_high', label: '非常高鉀', icon: '🔴' };
-  if (potassium > 200) return { level: 'high', label: '高鉀', icon: '🟠' };
-  if (potassium > 100) return { level: 'medium', label: '中等鉀', icon: '🟡' };
-  return { level: 'low', label: '低鉀', icon: '🟢' };
-}
-
-/**
  * 判斷食物是否有腎友警告（使用 NKF 標準）
  */
 function getKidneyWarnings(food) {
@@ -291,6 +301,9 @@ export default async function handler(request) {
   }
 
   try {
+    // 動態載入營養資料庫
+    const nutritionData = await loadNutritionData(request);
+
     // 解析 URL 參數
     const url = new URL(request.url);
     const query = url.searchParams.get('q') || '';
