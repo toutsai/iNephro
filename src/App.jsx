@@ -546,7 +546,11 @@ function App() {
 
         <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}</div>
         <div className="doctor-container">
-          <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} />
+          <Doctor3D
+            isSpeaking={isDoctorSpeaking}
+            onStopSpeaking={stopSpeaking}
+            currentText={messages.filter(m => m.role === 'doctor').slice(-1)[0]?.text || ''}
+          />
         </div>
       </div>
 
@@ -559,7 +563,12 @@ function App() {
         >
           {isDoctorMinimized ? '➕' : '➖'}
         </button>
-        <Doctor3D isSpeaking={isDoctorSpeaking} onStopSpeaking={stopSpeaking} isMobile={true} />
+        <Doctor3D
+          isSpeaking={isDoctorSpeaking}
+          onStopSpeaking={stopSpeaking}
+          isMobile={true}
+          currentText={messages.filter(m => m.role === 'doctor').slice(-1)[0]?.text || ''}
+        />
       </div>
     </div>
   );
