@@ -300,7 +300,7 @@ export default async function handler(request) {
       result = await fallbackToChatGPT(question, OPENAI_KEY);
     }
 
-    // 7. 存入快取（7 天過期，604800 秒）
+    // 7. 存入快取（30 天過期，2592000 秒）
     const cacheData = {
       ...result,
       timestamp: Date.now(),
@@ -308,8 +308,8 @@ export default async function handler(request) {
     };
 
     if (cache) {
-      await cache.set(cacheKey, cacheData, 7 * 24 * 60 * 60);
-      console.log('💾 已存入快取');
+      await cache.set(cacheKey, cacheData, 30 * 24 * 60 * 60); // 30 天
+      console.log('💾 已存入快取（30天有效期）');
     } else {
       console.log('⚠️ 快取未啟用，跳過快取存儲');
     }

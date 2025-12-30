@@ -195,7 +195,7 @@ function App() {
 
     // === 第一層快取：localStorage（最快，0ms）===
     const CACHE_KEY_PREFIX = 'inephro_cache_';
-    const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7天過期
+    const CACHE_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30天過期
 
     const getCacheKey = (prompt) => {
       return CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt));
