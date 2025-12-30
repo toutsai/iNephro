@@ -20,20 +20,43 @@ function DoctorModel({ isSpeaking }) {
   const nextBlinkTimeRef = useRef(2);
 
   useEffect(() => {
-    scene.traverse((child) => {
-      if (child.isMesh && child.morphTargetDictionary) {
-        if (child.name === 'Wolf3D_Head') {
-          faceMeshRef.current = child; // 存入 Ref
+    console.log('=== 🔍 3D 模型完整掃描開始 ===');
 
-          // 列出所有可用的 morph targets（除錯用）
-          console.log('可用的 Morph Targets:', Object.keys(child.morphTargetDictionary));
-        }
-        if (child.name === 'Wolf3D_Teeth') {
-          teethMeshRef.current = child; // 存入 Ref
+    // 掃描所有 Mesh 及其 Morph Targets
+    const meshesWithMorphs = [];
+    const allBones = [];
+
+    scene.traverse((child) => {
+      // 收集所有 Mesh 及其 Morph Targets
+      if (child.isMesh) {
+        console.log(`📦 Mesh: ${child.name}`);
+
+        if (child.morphTargetDictionary) {
+          const morphs = Object.keys(child.morphTargetDictionary);
+          console.log(`  ✅ Morph Targets (${morphs.length}):`, morphs);
+          meshesWithMorphs.push({
+            name: child.name,
+            morphs: morphs
+          });
+
+          // 儲存特定 Mesh 的引用
+          if (child.name === 'Wolf3D_Head') {
+            faceMeshRef.current = child;
+          }
+          if (child.name === 'Wolf3D_Teeth') {
+            teethMeshRef.current = child;
+          }
+        } else {
+          console.log(`  ❌ 無 Morph Targets`);
         }
       }
-      // 尋找頭部骨骼（用於轉動頭部）
+
+      // 收集所有骨骼
       if (child.isBone) {
+        console.log(`🦴 Bone: ${child.name}`);
+        allBones.push(child.name);
+
+        // 儲存特定骨骼的引用
         if (child.name.toLowerCase().includes('head') || child.name.toLowerCase().includes('neck')) {
           headBoneRef.current = child;
         }
@@ -42,6 +65,12 @@ function DoctorModel({ isSpeaking }) {
         }
       }
     });
+
+    console.log('=== 📊 掃描結果統計 ===');
+    console.log(`總共找到 ${meshesWithMorphs.length} 個帶 Morph Targets 的 Mesh`);
+    console.log(`總共找到 ${allBones.length} 個骨骼`);
+    console.log('所有骨骼列表:', allBones);
+    console.log('=== 🔍 掃描結束 ===');
   }, [scene]);
 
   const BASE_Y = -5.3; 
