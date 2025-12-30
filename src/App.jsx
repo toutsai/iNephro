@@ -505,12 +505,12 @@ function App() {
         <div className="input-area-wrapper">
           <div className="input-group">
             <button className={`icon-btn ${isRecording ? 'recording' : ''}`} onClick={handleVoiceInput}>🎙️</button>
-            <input 
+            <input
               className="chat-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={isRecording ? "聆聽中..." : "請輸入..."}
+              placeholder={isRecording ? "聆聽中..." : "用講ㄟ也會通，打字輸入也可以"}
             />
             <button className="icon-btn" onClick={() => handleSend()} style={{color: '#3498db'}}>➤</button>
           </div>
