@@ -14,11 +14,20 @@ export const config = {
 import nutritionData from '../public/nutrition-data.json' assert { type: 'json' };
 
 /**
- * 判斷食物是否有腎友警告
+ * 判斷鉀含量等級（依據 NKF 美國國家腎臟基金會標準）
+ */
+function getPotassiumLevel(potassium) {
+  if (potassium > 300) return { level: 'very_high', label: '非常高鉀', icon: '🔴' };
+  if (potassium > 200) return { level: 'high', label: '高鉀', icon: '🟠' };
+  if (potassium > 100) return { level: 'medium', label: '中等鉀', icon: '🟡' };
+  return { level: 'low', label: '低鉀', icon: '🟢' };
+}
+
+/**
+ * 判斷食物是否有腎友警告（使用 NKF 標準）
  */
 function getKidneyWarnings(food) {
   const warnings = [];
-  const thresholds = nutritionData.warningThresholds;
 
   // 特殊警告：楊桃（含神經毒素）
   if (food.kidneyWarning === 'carambola') {
@@ -32,19 +41,44 @@ function getKidneyWarnings(food) {
     return warnings;
   }
 
-  // 高鉀警告
-  if (food.potassium >= thresholds.potassium.high) {
+  // 鉀含量等級（NKF 標準）
+  const kLevel = getPotassiumLevel(food.potassium);
+
+  // 非常高鉀 (>300 mg)
+  if (kLevel.level === 'very_high') {
     warnings.push({
-      level: 'warning',
-      type: 'potassium',
-      message: '⚠️ 高鉀食物',
-      detail: `鉀含量 ${food.potassium} mg，建議限量食用`,
-      icon: '🔶'
+      level: 'danger',
+      type: 'very_high_potassium',
+      message: `${kLevel.icon} 非常高鉀食物`,
+      detail: `鉀含量 ${food.potassium} mg (>300 mg)，腎友應避免食用`,
+      icon: '🔴'
     });
   }
 
-  // 高磷警告
-  if (food.phosphorus >= thresholds.phosphorus.high) {
+  // 高鉀 (200-300 mg)
+  else if (kLevel.level === 'high') {
+    warnings.push({
+      level: 'warning',
+      type: 'high_potassium',
+      message: `${kLevel.icon} 高鉀食物`,
+      detail: `鉀含量 ${food.potassium} mg (200-300 mg)，建議嚴格限量`,
+      icon: '🟠'
+    });
+  }
+
+  // 中等鉀 (100-200 mg)
+  else if (kLevel.level === 'medium') {
+    warnings.push({
+      level: 'info',
+      type: 'medium_potassium',
+      message: `${kLevel.icon} 中等鉀食物`,
+      detail: `鉀含量 ${food.potassium} mg (100-200 mg)，可適量食用`,
+      icon: '🟡'
+    });
+  }
+
+  // 高磷警告 (>250 mg)
+  if (food.phosphorus >= 250) {
     warnings.push({
       level: 'warning',
       type: 'phosphorus',
@@ -54,25 +88,14 @@ function getKidneyWarnings(food) {
     });
   }
 
-  // 高鈉警告
-  if (food.sodium >= thresholds.sodium.high) {
+  // 高鈉警告 (>100 mg)
+  if (food.sodium >= 100) {
     warnings.push({
       level: 'warning',
       type: 'sodium',
       message: '⚠️ 高鈉食物',
       detail: `鈉含量 ${food.sodium} mg，建議限量食用`,
-      icon: '🔶'
-    });
-  }
-
-  // 同時高鉀高磷（如：堅果類、豆類）
-  if (food.kidneyWarning === 'both') {
-    warnings.push({
-      level: 'caution',
-      type: 'both',
-      message: '💡 高鉀高磷食物',
-      detail: '同時含高鉀、高磷，腎友應避免或嚴格限量',
-      icon: '⚡'
+      icon: '🔷'
     });
   }
 
@@ -114,9 +137,13 @@ export default async function handler(request) {
       );
     }
 
-    // 搜尋食物（模糊搜尋）
+    // 搜尋食物（模糊搜尋：樣品名稱、俗名、分類）
     const results = nutritionData.foods
-      .filter(food => food.name.includes(query) || food.category.includes(query))
+      .filter(food =>
+        food.name.includes(query) ||
+        (food.alias && food.alias.includes(query)) ||
+        food.category.includes(query)
+      )
       .slice(0, limit)
       .map(food => ({
         ...food,

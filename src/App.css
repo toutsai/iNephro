@@ -730,6 +730,13 @@ body {
   font-size: 14px;
 }
 
+.nutrition-alias {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  margin-left: 6px;
+}
+
 .nutrition-category {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
@@ -794,6 +801,12 @@ body {
   background: rgba(33, 150, 243, 0.2);
   border: 1px solid #2196F3;
   color: #bbdefb;
+}
+
+.warning.info {
+  background: rgba(255, 235, 59, 0.15);
+  border: 1px solid #FFC107;
+  color: #FFF9C4;
 }
 
 .nutrition-note {
