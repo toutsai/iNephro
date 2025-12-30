@@ -80,7 +80,7 @@ function App() {
   // ★★★ 關鍵修改：用 useCallback 包起來 ★★★
   const refreshTopics = React.useCallback(() => {
     const shuffled = [...KEYWORD_POOL].sort(() => 0.5 - Math.random());
-    setRandomTopics(shuffled.slice(0, 10));
+    setRandomTopics(shuffled.slice(0, 6)); // 只顯示 6 個項目
   }, []); // 尾巴這個 [] 代表它永遠不會變
 
   // 一進來就先抽一次
@@ -451,18 +451,18 @@ function App() {
         <div className="brand-title">iNephro 衛教諮詢室</div>
 
         {/* 1. 固定精選主題 */}
-        <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>📌 精選主題</div>
+        <div style={{fontSize:'12px', color:'#aaa', marginBottom:'3px', paddingLeft:'10px'}}>📌 精選主題</div>
         {Object.keys(TOPIC_DATA).map(key => (
           <div
             key={key}
-            className={`menu-item ${activeCategory === key ? 'active' : ''}`}
+            className={`menu-item compact ${activeCategory === key ? 'active' : ''}`}
             onClick={() => handleMenuClick(key)}
           >
             ⭐ {TOPIC_DATA[key].title}
           </div>
         ))}
 
-        <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '15px 0'}} />
+        <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '10px 0'}} />
 
         {/* 2. 營養查詢 */}
         <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>🥗 營養查詢</div>
@@ -540,10 +540,10 @@ function App() {
           </div>
         )}
 
-        <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '15px 0'}} />
+        <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '10px 0'}} />
 
         {/* 3. 隨機熱搜主題 */}
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', paddingRight:'10px', marginBottom:'5px'}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', paddingRight:'10px', marginBottom:'3px'}}>
            <div style={{fontSize:'12px', color:'#aaa', paddingLeft:'10px'}}>🎲 今日熱搜</div>
            <button onClick={refreshTopics} style={{background:'none', border:'none', color:'#3498db', cursor:'pointer', fontSize:'12px'}}>
              🔄 換一組
@@ -553,7 +553,7 @@ function App() {
         {randomTopics.map((keyword, index) => (
           <div
             key={index}
-            className={`menu-item ${activeCategory === keyword ? 'active' : ''}`}
+            className={`menu-item compact ${activeCategory === keyword ? 'active' : ''}`}
             onClick={() => handleMenuClick(keyword)}
           >
             📄 {keyword}
