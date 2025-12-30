@@ -37,7 +37,21 @@ class UpstashCache {
       }
 
       // 解析 JSON 字串
-      return JSON.parse(data.result);
+      let parsed = JSON.parse(data.result);
+
+      // 容錯：如果是雙重序列化的舊快取（字串而非物件），再解析一次
+      if (typeof parsed === 'string') {
+        console.warn('⚠️ 偵測到舊格式快取，嘗試修復...');
+        parsed = JSON.parse(parsed);
+      }
+
+      // 驗證快取格式
+      if (!parsed || typeof parsed !== 'object' || !parsed.reply) {
+        console.warn('⚠️ 快取格式無效，忽略');
+        return null;
+      }
+
+      return parsed;
     } catch (error) {
       console.error('Upstash GET error:', error);
       return null;
@@ -54,9 +68,8 @@ class UpstashCache {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.token}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(jsonValue),
+        body: jsonValue,  // 直接傳遞 JSON 字串，不需要再包一層
       });
 
       if (!response.ok) {
