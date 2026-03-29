@@ -12,6 +12,10 @@ function Sidebar({
   handleNutritionSearch,
   isSearchingNutrition,
   nutritionResults,
+  onShowEGFR,
+  onClearMessages,
+  fontSize,
+  onFontSizeChange,
 }) {
   return (
     <div className="sidebar-menu">
@@ -74,7 +78,34 @@ function Sidebar({
         </div>
       ))}
 
-      <div style={{marginTop: 'auto', fontSize: '12px', color: '#aaa', textAlign: 'center'}}>Dr. AI v2.2</div>
+      <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '10px 0'}} />
+
+      {/* 4. 工具 */}
+      <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>🔧 工具</div>
+      <div
+        className="menu-item compact"
+        onClick={onShowEGFR}
+        style={{cursor:'pointer'}}
+      >
+        🧮 eGFR 計算器
+      </div>
+      <div
+        className="menu-item compact"
+        onClick={onClearMessages}
+        style={{cursor:'pointer'}}
+      >
+        🗑️ 清除對話記錄
+      </div>
+
+      {/* 5. 字體大小控制 */}
+      <div style={{padding:'10px', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px'}}>
+        <span className="font-size-label">字體</span>
+        <button className="font-size-btn" onClick={() => onFontSizeChange(-1)} aria-label="縮小字體">A-</button>
+        <span className="font-size-label">{fontSize}px</span>
+        <button className="font-size-btn" onClick={() => onFontSizeChange(1)} aria-label="放大字體">A+</button>
+      </div>
+
+      <div style={{marginTop: 'auto', fontSize: '12px', color: '#aaa', textAlign: 'center'}}>Dr. AI v2.3</div>
     </div>
   );
 }
