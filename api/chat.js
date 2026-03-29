@@ -204,15 +204,59 @@ async function fallbackToChatGPT(question, apiKey) {
 }
 
 /**
+ * CORS origin check
+ */
+function getCorsHeaders(request) {
+  const origin = request.headers?.get('origin') || '';
+  const allowedPatterns = [
+    /^https?:\/\/localhost(:\d+)?$/,
+    /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+    /^https:\/\/.*\.vercel\.app$/,
+    /^https:\/\/inephro\.vercel\.app$/,
+    /^https:\/\/.*inephro.*\.vercel\.app$/,
+  ];
+  const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : '',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    ...(isAllowed ? { 'Vary': 'Origin' } : {}),
+  };
+}
+
+/**
+ * Rate limiting: 20 requests per minute per IP
+ */
+async function checkRateLimit(cache, ip) {
+  if (!cache) return true; // skip if no cache
+  const key = `ratelimit:${ip}`;
+  try {
+    const response = await fetch(`${cache.url}/incr/${key}`, {
+      headers: { 'Authorization': `Bearer ${cache.token}` },
+    });
+    const data = await response.json();
+    const count = data.result;
+
+    if (count === 1) {
+      // First request, set expiry to 60 seconds
+      await fetch(`${cache.url}/expire/${key}/60`, {
+        headers: { 'Authorization': `Bearer ${cache.token}` },
+      });
+    }
+
+    return count <= 20;
+  } catch (e) {
+    console.warn('Rate limit check failed:', e);
+    return true; // fail open
+  }
+}
+
+/**
  * 主處理函式
  */
 export default async function handler(request) {
   // CORS headers
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
+  const corsHeaders = getCorsHeaders(request);
 
   // 處理 OPTIONS 請求（CORS preflight）
   if (request.method === 'OPTIONS') {
@@ -231,6 +275,18 @@ export default async function handler(request) {
     const cache = (UPSTASH_URL && UPSTASH_TOKEN)
       ? new UpstashCache(UPSTASH_URL, UPSTASH_TOKEN)
       : null;
+
+    // Rate limiting
+    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (cache) {
+      const allowed = await checkRateLimit(cache, clientIP);
+      if (!allowed) {
+        return new Response(
+          JSON.stringify({ error: '請求過於頻繁，請稍後再試' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // 2. 解析請求
     const { question } = await request.json();

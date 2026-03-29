@@ -940,3 +940,79 @@ body {
     display: flex;
   }
 }
+
+/* === 無障礙 (Accessibility) === */
+
+/* Focus ring for all interactive elements */
+.chip:focus-visible,
+.icon-btn:focus-visible,
+.menu-item:focus-visible,
+.quick-topic-chip:focus-visible,
+.nutrition-search-btn:focus-visible,
+.nutrition-floating-btn:focus-visible,
+.nutrition-modal-close:focus-visible,
+.doctor-close-btn:focus-visible {
+  outline: 3px solid #3498db;
+  outline-offset: 2px;
+}
+
+/* Ensure chat input has visible focus */
+.chat-input:focus-visible {
+  outline: 2px solid #3498db;
+  outline-offset: -2px;
+}
+
+.nutrition-input:focus-visible {
+  outline: 2px solid #3498db;
+  outline-offset: -2px;
+}
+
+/* Skip to content link (hidden but accessible) */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #3498db;
+  color: white;
+  padding: 8px 16px;
+  z-index: 10000;
+  font-size: 14px;
+  text-decoration: none;
+  border-radius: 0 0 4px 0;
+  transition: top 0.2s;
+}
+
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* Improve contrast for low-contrast text */
+.sidebar-menu [style*="color:#aaa"],
+.sidebar-menu [style*="color: #aaa"] {
+  color: #bdc3c7 !important;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .thinking-animation .dot,
+  .icon-btn.recording,
+  .doctor-floating.speaking,
+  .chip:hover,
+  .quick-topic-chip:hover {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+  .message.doctor {
+    border: 2px solid;
+  }
+  .message.patient {
+    border: 2px solid;
+  }
+  .chip {
+    border: 2px solid;
+  }
+}

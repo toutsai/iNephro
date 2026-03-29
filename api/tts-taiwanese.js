@@ -83,15 +83,32 @@ function convertToTaiwaneseRomanization(text) {
 }
 
 /**
+ * CORS origin check
+ */
+function getCorsHeaders(request) {
+  const origin = request.headers?.get('origin') || '';
+  const allowedPatterns = [
+    /^https?:\/\/localhost(:\d+)?$/,
+    /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+    /^https:\/\/.*\.vercel\.app$/,
+    /^https:\/\/inephro\.vercel\.app$/,
+    /^https:\/\/.*inephro.*\.vercel\.app$/,
+  ];
+  const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : '',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    ...(isAllowed ? { 'Vary': 'Origin' } : {}),
+  };
+}
+
+/**
  * 主處理函式
  */
 export default async function handler(request) {
   // CORS headers
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
+  const corsHeaders = getCorsHeaders(request);
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

@@ -1,7 +1,8 @@
 // src/App.jsx - Edge Function 版本（雲端快取 + AI）
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
-import Doctor3D from './Doctor3D';
+import ErrorBoundary from './components/ErrorBoundary';
+const Doctor3D = React.lazy(() => import('./Doctor3D'));
 import ReactMarkdown from 'react-markdown';
 
 // --- 1. 固定精選主題 (有圖) ---
@@ -474,7 +475,7 @@ function App() {
             placeholder="輸入食物名稱 (例：香蕉)"
             value={nutritionQuery}
             onChange={(e) => setNutritionQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleNutritionSearch()}
+            onKeyDown={(e) => e.key === 'Enter' && handleNutritionSearch()}
           />
           <button
             className="nutrition-search-btn"
@@ -621,7 +622,7 @@ function App() {
               className="chat-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder={isRecording ? "聆聽中..." : "用講ㄟ也會通，打字輸入也可以"}
             />
             <button className="icon-btn" onClick={() => handleSend()} style={{color: '#3498db'}}>➤</button>
@@ -633,11 +634,15 @@ function App() {
       <div className="right-panel">
         <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}</div>
         <div className="doctor-container">
-          <Doctor3D
-            isSpeaking={isDoctorSpeaking}
-            onStopSpeaking={stopSpeaking}
-            currentText={messages.filter(m => m.role === 'doctor').slice(-1)[0]?.text || ''}
-          />
+          <ErrorBoundary fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999',fontSize:'14px'}}>3D 模型載入失敗</div>}>
+            <React.Suspense fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999',fontSize:'14px'}}>載入中...</div>}>
+              <Doctor3D
+                isSpeaking={isDoctorSpeaking}
+                onStopSpeaking={stopSpeaking}
+                currentText={messages.filter(m => m.role === 'doctor').slice(-1)[0]?.text || ''}
+              />
+            </React.Suspense>
+          </ErrorBoundary>
         </div>
       </div>
 
@@ -650,12 +655,16 @@ function App() {
         >
           {isDoctorMinimized ? '➕' : '➖'}
         </button>
-        <Doctor3D
-          isSpeaking={isDoctorSpeaking}
-          onStopSpeaking={stopSpeaking}
-          isMobile={true}
-          currentText={messages.filter(m => m.role === 'doctor').slice(-1)[0]?.text || ''}
-        />
+        <ErrorBoundary fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999',fontSize:'12px'}}>載入失敗</div>}>
+          <React.Suspense fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999',fontSize:'12px'}}>載入中...</div>}>
+            <Doctor3D
+              isSpeaking={isDoctorSpeaking}
+              onStopSpeaking={stopSpeaking}
+              isMobile={true}
+              currentText={messages.filter(m => m.role === 'doctor').slice(-1)[0]?.text || ''}
+            />
+          </React.Suspense>
+        </ErrorBoundary>
       </div>
 
       {/* 行動版營養查詢浮動按鈕 */}
@@ -683,7 +692,7 @@ function App() {
                   placeholder="輸入食物名稱 (例：香蕉、芭樂)"
                   value={nutritionQuery}
                   onChange={(e) => setNutritionQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleNutritionSearch()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleNutritionSearch()}
                 />
                 <button
                   className="nutrition-search-btn"
