@@ -52,14 +52,16 @@ function DoctorModel({ isSpeaking }) {
         if (dict['mouthSmile'] !== undefined) inf[dict['mouthSmile']] = smileValue;
       });
 
-      // 頭部自然轉動
+      // 頭部：說話動畫 + 微微朝向滑鼠方向
       if (headBoneRef.current) {
-        headBoneRef.current.rotation.y = Math.sin(t * 0.4) * 0.12;
-        headBoneRef.current.rotation.x = Math.sin(t * 0.25) * 0.06;
+        const pointerX = state.pointer.x * 0.15; // 滑鼠影響 ±8.6°
+        const pointerY = state.pointer.y * 0.08;
+        headBoneRef.current.rotation.y = Math.sin(t * 0.4) * 0.08 + pointerX;
+        headBoneRef.current.rotation.x = Math.sin(t * 0.25) * 0.04 - pointerY;
         headBoneRef.current.rotation.z = Math.sin(t * 0.2) * 0.03;
       }
 
-      // 上半身微微擺動（Spine2 最安全，不影響手臂）
+      // 上半身微微擺動
       if (spine2Ref.current) {
         spine2Ref.current.rotation.y = Math.sin(t * 0.3) * 0.03;
       }
@@ -77,10 +79,12 @@ function DoctorModel({ isSpeaking }) {
         if (dict['mouthSmile'] !== undefined) inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], 0.1, 0.08);
       });
 
-      // 頭部 idle 微動（呼吸感）
+      // 頭部：idle 時跟隨滑鼠/手指位置（像在看著你）
+      const targetY = state.pointer.x * 0.25;  // 左右 ±14°
+      const targetX = -state.pointer.y * 0.12;  // 上下 ±7°
       if (headBoneRef.current) {
-        headBoneRef.current.rotation.y = lerp(headBoneRef.current.rotation.y, Math.sin(t * 0.15) * 0.03, rate);
-        headBoneRef.current.rotation.x = lerp(headBoneRef.current.rotation.x, Math.sin(t * 0.8) * 0.015, rate);
+        headBoneRef.current.rotation.y = lerp(headBoneRef.current.rotation.y, targetY, 0.05);
+        headBoneRef.current.rotation.x = lerp(headBoneRef.current.rotation.x, targetX, 0.05);
         headBoneRef.current.rotation.z = lerp(headBoneRef.current.rotation.z, 0, rate);
       }
       if (spine2Ref.current) {
