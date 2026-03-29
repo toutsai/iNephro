@@ -50,7 +50,24 @@ function DoctorModel({ isSpeaking }) {
         if (n === 'RightHand') rightHandRef.current = child;
       }
     });
+
+    // === 設定休息姿勢（從 T-pose 轉為自然站立）===
+    if (leftArmRef.current) leftArmRef.current.rotation.z = 1.1;    // 手臂從水平旋轉下來（~63°）
+    if (rightArmRef.current) rightArmRef.current.rotation.z = -1.1;
+    if (leftForeArmRef.current) leftForeArmRef.current.rotation.x = 0.25; // 肘部微彎
+    if (rightForeArmRef.current) rightForeArmRef.current.rotation.x = 0.25;
+    if (leftShoulderRef.current) leftShoulderRef.current.rotation.z = 0.15;
+    if (rightShoulderRef.current) rightShoulderRef.current.rotation.z = -0.15;
   }, [scene]);
+
+  // 休息姿勢的基準值
+  const REST = {
+    leftArmZ: 1.1,
+    rightArmZ: -1.1,
+    foreArmX: 0.25,
+    shoulderLZ: 0.15,
+    shoulderRZ: -0.15,
+  };
 
   const BASE_Y = -5.3;
 
@@ -91,30 +108,30 @@ function DoctorModel({ isSpeaking }) {
         spine1Ref.current.rotation.y = Math.sin(t * 0.25) * 0.02;
       }
 
-      // 4. 肩膀微動（Y 軸聳肩）
+      // 4. 肩膀微動
       if (leftShoulderRef.current) {
-        leftShoulderRef.current.rotation.y = Math.sin(t * 0.35) * 0.02;
+        leftShoulderRef.current.rotation.z = REST.shoulderLZ + Math.sin(t * 0.35) * 0.03;
       }
       if (rightShoulderRef.current) {
-        rightShoulderRef.current.rotation.y = Math.sin(t * 0.35 + Math.PI) * 0.02;
+        rightShoulderRef.current.rotation.z = REST.shoulderRZ + Math.sin(t * 0.35 + Math.PI) * 0.03;
       }
 
-      // 5. 手臂微微擺動（非常小，保持自然垂放）
+      // 5. 手臂在休息姿勢基礎上微微擺動
       if (leftArmRef.current) {
-        leftArmRef.current.rotation.z = Math.sin(t * 0.5) * 0.05;  // 前後 ±3°
-        leftArmRef.current.rotation.x = Math.sin(t * 0.4) * 0.03;  // 扭轉 ±1.7°
+        leftArmRef.current.rotation.z = REST.leftArmZ + Math.sin(t * 0.5) * 0.08;
+        leftArmRef.current.rotation.x = Math.sin(t * 0.4) * 0.04;
       }
       if (rightArmRef.current) {
-        rightArmRef.current.rotation.z = Math.sin(t * 0.5 + Math.PI) * 0.05;
-        rightArmRef.current.rotation.x = Math.sin(t * 0.4 + 1) * 0.03;
+        rightArmRef.current.rotation.z = REST.rightArmZ + Math.sin(t * 0.5 + Math.PI) * 0.08;
+        rightArmRef.current.rotation.x = Math.sin(t * 0.4 + 1) * 0.04;
       }
 
-      // 6. 前臂微彎（X 軸肘部彎曲）
+      // 6. 前臂在休息姿勢基礎上微彎
       if (leftForeArmRef.current) {
-        leftForeArmRef.current.rotation.x = Math.sin(t * 0.6) * 0.06;
+        leftForeArmRef.current.rotation.x = REST.foreArmX + Math.sin(t * 0.6) * 0.06;
       }
       if (rightForeArmRef.current) {
-        rightForeArmRef.current.rotation.x = Math.sin(t * 0.6 + Math.PI / 2) * 0.06;
+        rightForeArmRef.current.rotation.x = REST.foreArmX + Math.sin(t * 0.6 + Math.PI / 2) * 0.06;
       }
 
     } else {
@@ -140,18 +157,18 @@ function DoctorModel({ isSpeaking }) {
       }
       if (spineRef.current) spineRef.current.rotation.y = lerp(spineRef.current.rotation.y, 0, rate);
       if (spine1Ref.current) spine1Ref.current.rotation.y = lerp(spine1Ref.current.rotation.y, 0, rate);
-      if (leftShoulderRef.current) leftShoulderRef.current.rotation.y = lerp(leftShoulderRef.current.rotation.y, 0, rate);
-      if (rightShoulderRef.current) rightShoulderRef.current.rotation.y = lerp(rightShoulderRef.current.rotation.y, 0, rate);
+      if (leftShoulderRef.current) leftShoulderRef.current.rotation.z = lerp(leftShoulderRef.current.rotation.z, REST.shoulderLZ, rate);
+      if (rightShoulderRef.current) rightShoulderRef.current.rotation.z = lerp(rightShoulderRef.current.rotation.z, REST.shoulderRZ, rate);
       if (leftArmRef.current) {
-        leftArmRef.current.rotation.z = lerp(leftArmRef.current.rotation.z, 0, rate);
+        leftArmRef.current.rotation.z = lerp(leftArmRef.current.rotation.z, REST.leftArmZ, rate);
         leftArmRef.current.rotation.x = lerp(leftArmRef.current.rotation.x, 0, rate);
       }
       if (rightArmRef.current) {
-        rightArmRef.current.rotation.z = lerp(rightArmRef.current.rotation.z, 0, rate);
+        rightArmRef.current.rotation.z = lerp(rightArmRef.current.rotation.z, REST.rightArmZ, rate);
         rightArmRef.current.rotation.x = lerp(rightArmRef.current.rotation.x, 0, rate);
       }
-      if (leftForeArmRef.current) leftForeArmRef.current.rotation.x = lerp(leftForeArmRef.current.rotation.x, 0, rate);
-      if (rightForeArmRef.current) rightForeArmRef.current.rotation.x = lerp(rightForeArmRef.current.rotation.x, 0, rate);
+      if (leftForeArmRef.current) leftForeArmRef.current.rotation.x = lerp(leftForeArmRef.current.rotation.x, REST.foreArmX, rate);
+      if (rightForeArmRef.current) rightForeArmRef.current.rotation.x = lerp(rightForeArmRef.current.rotation.x, REST.foreArmX, rate);
     }
   });
 
