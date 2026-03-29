@@ -16,6 +16,9 @@ function DoctorModel({ isSpeaking }) {
   const headBoneRef = useRef(null);
   const spine2Ref = useRef(null);
 
+  // 儲存頭部初始旋轉，以便在動畫中做增量
+  const headRestX = useRef(0);
+
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh && child.morphTargetDictionary) {
@@ -23,7 +26,12 @@ function DoctorModel({ isSpeaking }) {
         if (child.name === 'Wolf3D_Teeth') teethMeshRef.current = child;
       }
       if (child.isBone) {
-        if (child.name === 'Head') headBoneRef.current = child;
+        if (child.name === 'Head') {
+          headBoneRef.current = child;
+          // 記錄原始 X 旋轉值，然後微調抬頭
+          headRestX.current = child.rotation.x - 0.1; // 抬頭約 6°
+          child.rotation.x = headRestX.current;
+        }
         if (child.name === 'Spine2') spine2Ref.current = child;
       }
     });
@@ -54,10 +62,10 @@ function DoctorModel({ isSpeaking }) {
 
       // 頭部：說話動畫 + 微微朝向滑鼠方向
       if (headBoneRef.current) {
-        const pointerX = state.pointer.x * 0.15; // 滑鼠影響 ±8.6°
+        const pointerX = state.pointer.x * 0.15;
         const pointerY = state.pointer.y * 0.08;
         headBoneRef.current.rotation.y = Math.sin(t * 0.4) * 0.08 + pointerX;
-        headBoneRef.current.rotation.x = Math.sin(t * 0.25) * 0.04 - pointerY;
+        headBoneRef.current.rotation.x = headRestX.current + Math.sin(t * 0.25) * 0.04 - pointerY;
         headBoneRef.current.rotation.z = Math.sin(t * 0.2) * 0.03;
       }
 
@@ -81,7 +89,7 @@ function DoctorModel({ isSpeaking }) {
 
       // 頭部：idle 時跟隨滑鼠/手指位置（像在看著你）
       const targetY = state.pointer.x * 0.25;  // 左右 ±14°
-      const targetX = -state.pointer.y * 0.12;  // 上下 ±7°
+      const targetX = headRestX.current - state.pointer.y * 0.12;  // 基於抬頭姿勢 + 上下 ±7°
       if (headBoneRef.current) {
         headBoneRef.current.rotation.y = lerp(headBoneRef.current.rotation.y, targetY, 0.05);
         headBoneRef.current.rotation.x = lerp(headBoneRef.current.rotation.x, targetX, 0.05);
@@ -114,7 +122,7 @@ export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false,
   const keywords = extractKeywords(currentText);
 
   const cameraSettings = isMobile
-    ? { position: [0, 0.3, 3.5], fov: 26 }
+    ? { position: [0, 0.8, 3.5], fov: 26 }
     : { position: [0, 0.5, 6.5], fov: 25 };
 
   return (

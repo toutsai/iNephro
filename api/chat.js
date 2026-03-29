@@ -100,52 +100,52 @@ async function generateCacheKey(question) {
 }
 
 /**
- * 調用 Assistants API（使用 streaming 取代 polling，大幅加速）
+ * 調用 Assistants API（穩定版 polling，快速間隔）
  */
 async function callAssistantAPI(question, apiKey, assistantId) {
   const client = new OpenAI({ apiKey });
 
-  // 1. 建立 Thread + 加入訊息
+  // 1. 建立 Thread + 加入訊息 + 執行（合併減少延遲）
   const thread = await client.beta.threads.create();
   await client.beta.threads.messages.create(thread.id, {
     role: 'user',
     content: question
   });
-
-  // 2. 使用 streaming 執行 Assistant（取代 polling loop）
-  let reply = '';
-  let annotations = [];
-
-  const run = client.beta.threads.runs.stream(thread.id, {
+  const run = await client.beta.threads.runs.create(thread.id, {
     assistant_id: assistantId
   });
 
-  // 3. 等待 stream 完成，收集完整回覆
-  for await (const event of run) {
-    if (event.event === 'thread.message.delta') {
-      const delta = event.data.delta;
-      if (delta.content) {
-        for (const block of delta.content) {
-          if (block.type === 'text') {
-            reply += block.text.value || '';
-            if (block.text.annotations) {
-              annotations.push(...block.text.annotations);
-            }
-          }
-        }
-      }
+  // 2. 快速 polling（前 5 次 300ms，之後 800ms，最多 25 秒）
+  let attempts = 0;
+  const maxAttempts = 35;
+
+  while (attempts < maxAttempts) {
+    const delay = attempts < 5 ? 300 : 800;
+    await new Promise(resolve => setTimeout(resolve, delay));
+
+    const runStatus = await client.beta.threads.runs.retrieve(thread.id, run.id);
+
+    if (runStatus.status === 'completed') {
+      const messages = await client.beta.threads.messages.list(thread.id);
+      const assistantMessage = messages.data.find(
+        msg => msg.role === 'assistant' && msg.run_id === run.id
+      );
+      if (!assistantMessage) throw new Error('無法取得 Assistant 回覆');
+
+      const reply = assistantMessage.content[0].text.value;
+      const annotations = assistantMessage.content[0].text.annotations || [];
+      const confidence = annotations.length > 0 ? 'high' : 'medium';
+      return { reply, confidence, sources: annotations };
     }
-    if (event.event === 'thread.run.failed') {
-      throw new Error(`Run failed: ${event.data.last_error?.message || 'Unknown error'}`);
+
+    if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
+      throw new Error(`Run failed: ${runStatus.last_error?.message || 'Unknown error'}`);
     }
+
+    attempts++;
   }
 
-  if (!reply) {
-    throw new Error('無法取得 Assistant 回覆');
-  }
-
-  const confidence = annotations.length > 0 ? 'high' : 'medium';
-  return { reply, confidence, sources: annotations };
+  throw new Error('Run timeout');
 }
 
 /**
