@@ -1,13 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+const INITIAL_MESSAGE = {
+  role: 'doctor',
+  text: '您好，我是 iNephro 智能醫師。我會根據專業的腎臟科知識庫為您解答。您可以點選左側主題，或直接問我問題。\n\n⚠️ 本系統為衛教輔助工具，非醫療診斷服務。所有資訊僅供參考，請遵循您的主治醫師建議。',
+};
 
 export function useChat(speak, onSendCallback) {
-  const [messages, setMessages] = useState([
-    {
-      role: 'doctor',
-      text: '您好，我是 iNephro 智能醫師。我會根據專業的腎臟科知識庫為您解答。您可以點選左側主題，或直接問我問題。\n\n⚠️ 本系統為衛教輔助工具，非醫療診斷服務。所有資訊僅供參考，請遵循您的主治醫師建議。',
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('inephro_messages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter(msg => !msg.isThinking);
+        }
+      }
+    } catch (e) {
+      console.warn('讀取對話記錄失敗:', e);
     }
-  ]);
+    return [INITIAL_MESSAGE];
+  });
   const [input, setInput] = useState('');
+
+  // 對話持久化：儲存到 sessionStorage
+  useEffect(() => {
+    try {
+      const toSave = messages.filter(msg => !msg.isThinking);
+      sessionStorage.setItem('inephro_messages', JSON.stringify(toSave));
+    } catch (e) {
+      console.warn('儲存對話記錄失敗:', e);
+    }
+  }, [messages]);
 
   const callAI = async (userPrompt) => {
     // 移除思考提示（在實際回應前）
@@ -142,6 +165,11 @@ export function useChat(speak, onSendCallback) {
     callAI(question);
   };
 
+  const clearMessages = () => {
+    setMessages([INITIAL_MESSAGE]);
+    sessionStorage.removeItem('inephro_messages');
+  };
+
   return {
     messages,
     setMessages,
@@ -149,5 +177,6 @@ export function useChat(speak, onSendCallback) {
     setInput,
     callAI,
     handleSend,
+    clearMessages,
   };
 }

@@ -1,3 +1,13 @@
+/* --- 0. CSS 變數 (字體大小控制) --- */
+:root {
+  --font-size-base: 15px;
+  --font-size-small: 13px;
+  --font-size-xs: 12px;
+  --font-size-input: 16px;
+  --font-size-title: 1.5rem;
+  --font-size-chip: 14px;
+}
+
 /* src/App.css - iNephro 完整樣式表 (修復版) */
 
 /* --- 1. 全局設定 --- */
@@ -35,7 +45,7 @@ body {
 }
 
 .brand-title {
-  font-size: 1.5rem;
+  font-size: var(--font-size-title);
   font-weight: bold;
   margin-bottom: 40px;
   color: #3498db;
@@ -140,7 +150,7 @@ body {
   max-width: 80%;
   
   line-height: 1.6;
-  font-size: 15px;
+  font-size: var(--font-size-base);
   position: relative;
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
   word-wrap: break-word;
@@ -202,7 +212,7 @@ body {
   
   padding: 8px 18px;
   border-radius: 50px;       /* 圓角 */
-  font-size: 14px;
+  font-size: var(--font-size-chip);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
@@ -270,7 +280,7 @@ body {
   border: none;
   background: transparent;
   padding: 5px;
-  font-size: 16px;
+  font-size: var(--font-size-input);
   outline: none;
   color: #333;
   font-weight: 500;
@@ -454,7 +464,7 @@ body {
   color: white;
   padding: 10px 20px;
   border-radius: 20px;
-  font-size: 14px;
+  font-size: var(--font-size-chip);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -636,6 +646,41 @@ body {
     margin-bottom: 20px;
   }
 }
+
+/* --- 平板版 (769px - 1024px) --- */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar-menu {
+    flex: 0 0 200px;
+    padding: 15px;
+  }
+
+  .brand-title {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+  }
+
+  .menu-item.compact {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+
+  .right-panel {
+    flex: 0 0 250px;
+  }
+
+  .message {
+    max-width: 85%;
+  }
+
+  .suggestion-chips {
+    max-width: 95%;
+  }
+
+  .input-area-wrapper {
+    padding: 15px;
+  }
+}
+
 /* === 營養查詢樣式 === */
 .nutrition-search-box {
   display: flex;
@@ -653,7 +698,7 @@ body {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
   color: white;
-  font-size: 13px;
+  font-size: var(--font-size-small);
   outline: none;
   transition: all 0.3s ease;
 }
@@ -939,6 +984,39 @@ body {
   .nutrition-modal-overlay {
     display: flex;
   }
+}
+
+/* === 字體大小控制 === */
+.font-size-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.font-size-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.font-size-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.font-size-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 2px;
 }
 
 /* === 無障礙 (Accessibility) === */

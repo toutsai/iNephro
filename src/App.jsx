@@ -12,11 +12,16 @@ import { useNutrition } from './hooks/useNutrition';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import NutritionModal from './components/NutritionModal';
+import EGFRCalculator from './components/EGFRCalculator';
 
 function App() {
   const [activeCategory, setActiveCategory] = useState('home');
   const [randomTopics, setRandomTopics] = useState([]);
   const [isDoctorMinimized, setIsDoctorMinimized] = useState(false);
+  const [showEGFR, setShowEGFR] = useState(false);
+  const [fontSize, setFontSize] = useState(() => {
+    return parseInt(localStorage.getItem('inephro_fontsize') || '15', 10);
+  });
 
   // --- Hooks ---
   const {
@@ -27,8 +32,30 @@ function App() {
 
   const {
     messages, setMessages, input, setInput,
-    callAI, handleSend,
+    callAI, handleSend, clearMessages,
   } = useChat(speak, () => setIsDoctorSpeaking(false));
+
+  // --- Font size control ---
+  const adjustFontSize = (delta) => {
+    setFontSize(prev => {
+      const next = Math.min(22, Math.max(12, prev + delta));
+      localStorage.setItem('inephro_fontsize', String(next));
+      document.documentElement.style.setProperty('--font-size-base', `${next}px`);
+      document.documentElement.style.setProperty('--font-size-small', `${next - 2}px`);
+      document.documentElement.style.setProperty('--font-size-chip', `${next - 1}px`);
+      document.documentElement.style.setProperty('--font-size-input', `${next + 1}px`);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (fontSize !== 15) {
+      document.documentElement.style.setProperty('--font-size-base', `${fontSize}px`);
+      document.documentElement.style.setProperty('--font-size-small', `${fontSize - 2}px`);
+      document.documentElement.style.setProperty('--font-size-chip', `${fontSize - 1}px`);
+      document.documentElement.style.setProperty('--font-size-input', `${fontSize + 1}px`);
+    }
+  }, []);
 
   const {
     nutritionQuery, setNutritionQuery,
@@ -105,6 +132,10 @@ function App() {
         handleNutritionSearch={handleNutritionSearch}
         isSearchingNutrition={isSearchingNutrition}
         nutritionResults={nutritionResults}
+        onShowEGFR={() => setShowEGFR(true)}
+        onClearMessages={clearMessages}
+        fontSize={fontSize}
+        onFontSizeChange={adjustFontSize}
       />
 
       {/* 中欄：對話區 */}
@@ -174,6 +205,19 @@ function App() {
         isSearchingNutrition={isSearchingNutrition}
         nutritionResults={nutritionResults}
       />
+
+      {/* eGFR 計算器彈窗 */}
+      {showEGFR && (
+        <div style={{
+          position:'fixed', top:0, left:0, right:0, bottom:0,
+          background:'rgba(0,0,0,0.5)', display:'flex',
+          alignItems:'center', justifyContent:'center', zIndex:2000, padding:'20px',
+        }} onClick={() => setShowEGFR(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <EGFRCalculator onClose={() => setShowEGFR(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
