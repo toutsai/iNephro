@@ -1,4 +1,4 @@
-/* --- 0. CSS 變數 (字體大小 + 主題色彩 + 現代化) --- */
+/* --- 0. CSS 變數 (字體大小 + 主題色彩 + 馬卡龍風格) --- */
 :root {
   --font-size-base: 15px;
   --font-size-small: 13px;
@@ -7,32 +7,34 @@
   --font-size-title: 1.5rem;
   --font-size-chip: 14px;
 
-  /* 亮色主題 */
-  --bg-primary: #f0f4f8;
-  --bg-chat: #f5f7fa;
+  /* 亮色主題 — 馬卡龍藍白色系 */
+  --bg-primary: #f0f7ff;
+  --bg-chat: #f5f9ff;
   --bg-card: #ffffff;
-  --bg-sidebar: #1a2332;
-  --bg-sidebar-hover: #243447;
-  --bg-input: #f0f2f5;
-  --text-primary: #2c3e50;
-  --text-secondary: #555;
-  --text-muted: #95a5a6;
-  --border-color: rgba(0,0,0,0.08);
-  --border-light: rgba(0,0,0,0.04);
-  --accent: #2e86de;
-  --accent-light: #54a0ff;
-  --accent-gradient: linear-gradient(135deg, #2e86de 0%, #54a0ff 50%, #48dbfb 100%);
-  --accent-glow: rgba(46, 134, 222, 0.3);
-  --sidebar-gradient: linear-gradient(180deg, #1a2332 0%, #0f1923 50%, #162030 100%);
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.3);
-  --msg-patient-bg: linear-gradient(135deg, #2e86de, #54a0ff);
-  --msg-patient-bg-solid: #2e86de;
+  --bg-sidebar: #eaf3fd;
+  --bg-sidebar-hover: #d6e8fa;
+  --bg-input: #f0f5fb;
+  --text-primary: #334155;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --sidebar-text: #334155;
+  --sidebar-text-muted: #8097b0;
+  --border-color: rgba(100, 150, 200, 0.12);
+  --border-light: rgba(100, 150, 200, 0.06);
+  --accent: #60a5fa;
+  --accent-light: #93c5fd;
+  --accent-gradient: linear-gradient(135deg, #60a5fa 0%, #93c5fd 50%, #a5f3fc 100%);
+  --accent-glow: rgba(96, 165, 250, 0.25);
+  --sidebar-gradient: linear-gradient(180deg, #eaf3fd 0%, #dbeafe 50%, #e0f2fe 100%);
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(96, 165, 250, 0.15);
+  --msg-patient-bg: linear-gradient(135deg, #60a5fa, #93c5fd);
+  --msg-patient-bg-solid: #60a5fa;
   --msg-doctor-bg: #ffffff;
-  --msg-doctor-border: rgba(0,0,0,0.06);
-  --shadow-light: rgba(0,0,0,0.04);
-  --shadow-medium: 0 4px 20px rgba(0,0,0,0.08);
-  --shadow-elevated: 0 8px 32px rgba(0,0,0,0.12);
+  --msg-doctor-border: rgba(96, 165, 250, 0.12);
+  --shadow-light: rgba(96, 165, 250, 0.06);
+  --shadow-medium: 0 4px 20px rgba(96, 165, 250, 0.10);
+  --shadow-elevated: 0 8px 32px rgba(96, 165, 250, 0.15);
 }
 
 /* 深色主題 */
@@ -46,17 +48,19 @@
   --text-primary: #e8edf2;
   --text-secondary: #a0b0c0;
   --text-muted: #5a6a7a;
+  --sidebar-text: #e8edf2;
+  --sidebar-text-muted: #5a6a7a;
   --border-color: rgba(255,255,255,0.06);
   --border-light: rgba(255,255,255,0.03);
-  --accent: #54a0ff;
-  --accent-light: #48dbfb;
-  --accent-gradient: linear-gradient(135deg, #2e86de 0%, #54a0ff 50%, #48dbfb 100%);
-  --accent-glow: rgba(84, 160, 255, 0.25);
+  --accent: #60a5fa;
+  --accent-light: #93c5fd;
+  --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #60a5fa 50%, #38bdf8 100%);
+  --accent-glow: rgba(96, 165, 250, 0.25);
   --sidebar-gradient: linear-gradient(180deg, #0a1018 0%, #0d1520 50%, #111d2a 100%);
   --glass-bg: rgba(26, 40, 54, 0.8);
   --glass-border: rgba(255, 255, 255, 0.08);
-  --msg-patient-bg: linear-gradient(135deg, #1a5fa8, #2e86de);
-  --msg-patient-bg-solid: #1a5fa8;
+  --msg-patient-bg: linear-gradient(135deg, #2563eb, #3b82f6);
+  --msg-patient-bg-solid: #2563eb;
   --msg-doctor-bg: #1a2836;
   --msg-doctor-border: rgba(255,255,255,0.06);
   --shadow-light: rgba(0,0,0,0.15);
@@ -110,7 +114,7 @@ body {
 .sidebar-menu {
   flex: 0 0 260px;
   background: var(--sidebar-gradient);
-  color: white;
+  color: var(--sidebar-text, white);
   display: flex;
   flex-direction: column;
   padding: 20px;
@@ -124,7 +128,7 @@ body {
   font-size: var(--font-size-title);
   font-weight: 800;
   margin-bottom: 30px;
-  background: var(--accent-gradient);
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 50%, #38bdf8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -148,10 +152,8 @@ body {
 }
 
 .menu-item:hover {
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-left-color: var(--accent-light);
+  background: rgba(96, 165, 250, 0.1);
+  border-left-color: var(--accent);
   transform: translateX(4px);
 }
 
@@ -422,15 +424,11 @@ body {
 /* --- 7. 右欄：3D 醫師區 --- */
 .right-panel {
   flex: 0 0 350px;
-  background: linear-gradient(180deg, #e8f0fe 0%, #f5f7fa 40%, #ffffff 100%);
+  background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-card) 100%);
   border-left: 1px solid var(--border-color);
   position: relative;
   display: flex;
   flex-direction: column;
-}
-
-[data-theme="dark"] .right-panel {
-  background: linear-gradient(180deg, #0f1923 0%, #162030 40%, #1a2836 100%);
 }
 
 .doctor-container {
@@ -624,8 +622,8 @@ body {
   }
 }
 
-/* 手機版 (≤ 768px) */
-@media (max-width: 768px) {
+/* 行動版 (≤ 1024px，手機+平板統一) */
+@media (max-width: 1024px) {
   /* 全局設定 */
   body, html {
     margin: 0;
@@ -684,7 +682,7 @@ body {
   /* 中間對話區佔滿 */
   .center-stage {
     flex: 1;
-    margin-top: 155px; /* 快速主題 + 3D 醫師迷你面板 */
+    margin-top: calc(55px + 45vh); /* 快速主題 + 3D 醫師面板 */
     padding-bottom: 56px; /* 底部導航列留空間 */
     width: 100%;
   }
@@ -746,39 +744,6 @@ body {
   }
 }
 
-/* --- 平板版 (769px - 1024px) --- */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .sidebar-menu {
-    flex: 0 0 200px;
-    padding: 15px;
-  }
-
-  .brand-title {
-    font-size: 1.2rem;
-    margin-bottom: 20px;
-  }
-
-  .menu-item.compact {
-    padding: 6px 10px;
-    font-size: 0.85rem;
-  }
-
-  .right-panel {
-    flex: 0 0 250px;
-  }
-
-  .message {
-    max-width: 85%;
-  }
-
-  .suggestion-chips {
-    max-width: 95%;
-  }
-
-  .input-area-wrapper {
-    padding: 15px;
-  }
-}
 
 /* === 營養查詢樣式 === */
 .nutrition-search-box {
@@ -793,17 +758,17 @@ body {
 .nutrition-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
+  background: var(--bg-card);
+  color: var(--sidebar-text, white);
   font-size: var(--font-size-small);
   outline: none;
   transition: all 0.3s ease;
 }
 
 .nutrition-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
 }
 
 .nutrition-input:focus {
@@ -1071,24 +1036,23 @@ body {
   overflow-y: auto;
 }
 
-/* ===== 行動版 3D 醫師迷你面板 ===== */
+/* ===== 行動版 3D 醫師主面板 ===== */
 .mobile-doctor-mini {
   display: none; /* 桌面版隱藏 */
   position: fixed;
-  top: 55px; /* 快速主題列下方 */
+  top: 55px;
   left: 0;
   right: 0;
-  height: 100px;
+  height: 45vh;
   z-index: 50;
-  background: linear-gradient(180deg, var(--bg-primary) 0%, transparent 100%);
+  background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-chat) 100%);
   overflow: hidden;
-  transition: height 0.4s ease, opacity 0.3s ease;
-  opacity: 0.7;
+  transition: height 0.4s ease;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .mobile-doctor-mini.speaking {
-  height: 140px;
-  opacity: 1;
+  height: 50vh;
 }
 
 .mobile-doctor-mini-canvas {
@@ -1098,21 +1062,23 @@ body {
 
 .mobile-doctor-mini-status {
   position: absolute;
-  bottom: 4px;
+  bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  padding: 2px 12px;
-  border-radius: 10px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 4px 16px;
+  border-radius: 12px;
   border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-medium);
 }
 
 .mobile-doctor-mini.speaking .mobile-doctor-mini-status {
   color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ===== 行動版底部導航列 + 面板 ===== */
@@ -1251,7 +1217,7 @@ body {
   border-top-color: var(--border-color);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .nutrition-modal-overlay {
     display: flex;
   }
@@ -1259,9 +1225,9 @@ body {
 
 /* === 深色模式切換 === */
 .theme-toggle-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  background: var(--glass-bg);
+  border: 1px solid var(--border-color);
+  color: var(--sidebar-text, white);
   padding: 6px 14px;
   border-radius: 20px;
   font-size: 13px;
@@ -1290,9 +1256,9 @@ body {
 }
 
 .font-size-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  background: var(--glass-bg);
+  border: 1px solid var(--border-color);
+  color: var(--sidebar-text, white);
   width: 32px;
   height: 32px;
   border-radius: 6px;
@@ -1311,7 +1277,7 @@ body {
 
 .font-size-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sidebar-text-muted, rgba(255,255,255,0.5));
   margin: 0 2px;
 }
 
@@ -1391,8 +1357,8 @@ body {
   }
 }
 
-/* ===== 行動版覆蓋：確保底部導航列和面板在手機上顯示 ===== */
-@media (max-width: 768px) {
+/* ===== 行動版覆蓋：確保底部導航列和面板在手機+平板上顯示 ===== */
+@media (max-width: 1024px) {
   .mobile-bottom-nav {
     display: flex !important;
   }
