@@ -1346,3 +1346,16 @@ body {
     border: 2px solid;
   }
 }
+
+/* ===== 行動版覆蓋：確保底部導航列和面板在手機上顯示 ===== */
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex !important;
+  }
+  .mobile-panel {
+    display: flex !important;
+  }
+  .center-stage.mobile-hidden {
+    display: none !important;
+  }
+}
