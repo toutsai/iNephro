@@ -10,6 +10,7 @@ function ChatArea({
   handleVoiceInput,
   isRecording,
   isDoctorSpeaking,
+  className = '',
 }) {
   const messagesEndRef = useRef(null);
 
@@ -18,7 +19,7 @@ function ChatArea({
   }, [messages]);
 
   return (
-    <div className="center-stage">
+    <div className={`center-stage ${className}`}>
       <div className="chat-scroll-area">
         {messages.map((msg, index) => {
           const { content, suggestions } = parseMessage(msg.text);
