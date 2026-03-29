@@ -16,6 +16,8 @@ function Sidebar({
   onClearMessages,
   fontSize,
   onFontSizeChange,
+  darkMode,
+  onToggleDarkMode,
 }) {
   return (
     <div className="sidebar-menu">
@@ -97,12 +99,17 @@ function Sidebar({
         🗑️ 清除對話記錄
       </div>
 
-      {/* 5. 字體大小控制 */}
+      {/* 5. 字體大小控制 + 深色模式 */}
       <div style={{padding:'10px', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px'}}>
         <span className="font-size-label">字體</span>
         <button className="font-size-btn" onClick={() => onFontSizeChange(-1)} aria-label="縮小字體">A-</button>
         <span className="font-size-label">{fontSize}px</span>
         <button className="font-size-btn" onClick={() => onFontSizeChange(1)} aria-label="放大字體">A+</button>
+      </div>
+      <div style={{padding:'0 10px 10px', display:'flex', justifyContent:'center'}}>
+        <button className="theme-toggle-btn" onClick={onToggleDarkMode} aria-label="切換深色模式">
+          {darkMode ? '☀️ 亮色' : '🌙 深色'}
+        </button>
       </div>
 
       <div style={{marginTop: 'auto', fontSize: '12px', color: '#aaa', textAlign: 'center'}}>Dr. AI v2.3</div>

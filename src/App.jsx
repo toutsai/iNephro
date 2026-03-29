@@ -22,6 +22,11 @@ function App() {
   const [fontSize, setFontSize] = useState(() => {
     return parseInt(localStorage.getItem('inephro_fontsize') || '15', 10);
   });
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('inephro_theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches || false;
+  });
 
   // --- Hooks ---
   const {
@@ -47,6 +52,22 @@ function App() {
       return next;
     });
   };
+
+  // --- Dark mode ---
+  const toggleDarkMode = () => {
+    setDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('inephro_theme', next ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', next ? 'dark' : '');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
 
   useEffect(() => {
     if (fontSize !== 15) {
@@ -136,6 +157,8 @@ function App() {
         onClearMessages={clearMessages}
         fontSize={fontSize}
         onFontSizeChange={adjustFontSize}
+        darkMode={darkMode}
+        onToggleDarkMode={toggleDarkMode}
       />
 
       {/* 中欄：對話區 */}

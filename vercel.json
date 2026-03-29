@@ -26,6 +26,25 @@
           "value": "strict-origin-when-cross-origin"
         }
       ]
+    },
+    {
+      "source": "/doctor.glb",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=604800, immutable" }
+      ]
+    },
+    {
+      "source": "/nutrition-data.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
     }
-  ]
+  ],
+  "trailingSlash": false,
+  "rewrites": [],
+  "overrides": {
+    "doctor.glb": {
+      "contentType": "model/gltf-binary"
+    }
+  }
 }
