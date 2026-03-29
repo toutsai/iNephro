@@ -90,7 +90,26 @@ export function useSpeech() {
     utterance.rate = 1.0;
     utterance.onstart = () => setIsDoctorSpeaking(true);
     utterance.onend = () => setIsDoctorSpeaking(false);
+    utterance.onerror = () => setIsDoctorSpeaking(false);
     window.speechSynthesis.speak(utterance);
+
+    // Chrome bug 修正：speechSynthesis 長文本可能不觸發 onend
+    // 定期檢查 speaking 狀態，如果已停止但 state 還是 true 就強制修正
+    const checkInterval = setInterval(() => {
+      if (!window.speechSynthesis.speaking) {
+        setIsDoctorSpeaking(false);
+        clearInterval(checkInterval);
+      }
+    }, 500);
+
+    // 安全閥：最多 60 秒後強制停止
+    setTimeout(() => {
+      clearInterval(checkInterval);
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+      setIsDoctorSpeaking(false);
+    }, 60000);
   };
 
   const stopSpeaking = () => {
