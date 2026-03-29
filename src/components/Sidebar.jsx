@@ -24,7 +24,7 @@ function Sidebar({
       <div className="brand-title">iNephro 衛教諮詢室</div>
 
       {/* 1. 固定精選主題 */}
-      <div style={{fontSize:'12px', color:'#aaa', marginBottom:'3px', paddingLeft:'10px'}}>📌 精選主題</div>
+      <div style={{fontSize:'12px', color:'var(--sidebar-text-muted, #aaa)', marginBottom:'3px', paddingLeft:'10px'}}>📌 精選主題</div>
       {Object.keys(TOPIC_DATA).map(key => (
         <div
           key={key}
@@ -35,10 +35,10 @@ function Sidebar({
         </div>
       ))}
 
-      <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '10px 0'}} />
+      <hr style={{borderColor: 'var(--border-color)', margin: '10px 0'}} />
 
       {/* 2. 營養查詢 */}
-      <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>🥗 營養查詢(源自食藥署食品營養成分資料庫)</div>
+      <div style={{fontSize:'12px', color:'var(--sidebar-text-muted, #aaa)', marginBottom:'5px', paddingLeft:'10px'}}>🥗 營養查詢(源自食藥署食品營養成分資料庫)</div>
       <div className="nutrition-search-box">
         <input
           type="text"
@@ -60,12 +60,12 @@ function Sidebar({
       {/* 營養查詢結果 */}
       <NutritionResult nutritionResults={nutritionResults} />
 
-      <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '10px 0'}} />
+      <hr style={{borderColor: 'var(--border-color)', margin: '10px 0'}} />
 
       {/* 3. 隨機熱搜主題 */}
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', paddingRight:'10px', marginBottom:'3px'}}>
-         <div style={{fontSize:'12px', color:'#aaa', paddingLeft:'10px'}}>🎲 今日熱搜</div>
-         <button onClick={refreshTopics} style={{background:'none', border:'none', color:'#3498db', cursor:'pointer', fontSize:'12px'}}>
+         <div style={{fontSize:'12px', color:'var(--sidebar-text-muted, #aaa)', paddingLeft:'10px'}}>🎲 今日熱搜</div>
+         <button onClick={refreshTopics} style={{background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontSize:'12px'}}>
            🔄 換一組
          </button>
       </div>
@@ -80,22 +80,14 @@ function Sidebar({
         </div>
       ))}
 
-      <hr style={{borderColor: 'rgba(255,255,255,0.1)', margin: '10px 0'}} />
+      <hr style={{borderColor: 'var(--border-color)', margin: '10px 0'}} />
 
       {/* 4. 工具 */}
-      <div style={{fontSize:'12px', color:'#aaa', marginBottom:'5px', paddingLeft:'10px'}}>🔧 工具</div>
-      <div
-        className="menu-item compact"
-        onClick={onShowEGFR}
-        style={{cursor:'pointer'}}
-      >
+      <div style={{fontSize:'12px', color:'var(--sidebar-text-muted, #aaa)', marginBottom:'5px', paddingLeft:'10px'}}>🔧 工具</div>
+      <div className="menu-item compact" onClick={onShowEGFR} style={{cursor:'pointer'}}>
         🧮 eGFR 計算器
       </div>
-      <div
-        className="menu-item compact"
-        onClick={onClearMessages}
-        style={{cursor:'pointer'}}
-      >
+      <div className="menu-item compact" onClick={onClearMessages} style={{cursor:'pointer'}}>
         🗑️ 清除對話記錄
       </div>
 
@@ -112,7 +104,7 @@ function Sidebar({
         </button>
       </div>
 
-      <div style={{marginTop: 'auto', fontSize: '12px', color: '#aaa', textAlign: 'center'}}>Dr. AI v2.3</div>
+      <div style={{marginTop: 'auto', fontSize: '12px', color: 'var(--sidebar-text-muted, #aaa)', textAlign: 'center'}}>Dr. AI v2.3</div>
     </div>
   );
 }
