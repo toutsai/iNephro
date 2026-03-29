@@ -4,5 +4,28 @@
       "path": "/api/warmup",
       "schedule": "0 0 */7 * *"
     }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' images.unsplash.com data:; connect-src 'self' api.openai.com texttospeech.googleapis.com *.upstash.io api-inference.huggingface.co; media-src 'self' blob:; font-src 'self'; object-src 'none'; frame-ancestors 'none'"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
   ]
 }

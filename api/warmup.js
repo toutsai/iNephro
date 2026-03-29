@@ -20,7 +20,7 @@ async function warmupQuestion(question, apiUrl) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message: question })
+      body: JSON.stringify({ question })
     });
 
     if (!response.ok) {
