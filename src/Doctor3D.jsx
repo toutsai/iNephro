@@ -114,7 +114,7 @@ export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false,
   const keywords = extractKeywords(currentText);
 
   const cameraSettings = isMobile
-    ? { position: [0, 1.2, 3.5], fov: 28 }
+    ? { position: [0, 1.8, 3.5], fov: 26 }
     : { position: [0, 0.5, 6.5], fov: 25 };
 
   return (
