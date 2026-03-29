@@ -100,70 +100,52 @@ async function generateCacheKey(question) {
 }
 
 /**
- * 調用 Assistants API
+ * 調用 Assistants API（使用 streaming 取代 polling，大幅加速）
  */
 async function callAssistantAPI(question, apiKey, assistantId) {
   const client = new OpenAI({ apiKey });
 
-  // 1. 建立 Thread
+  // 1. 建立 Thread + 加入訊息
   const thread = await client.beta.threads.create();
-
-  // 2. 加入訊息
   await client.beta.threads.messages.create(thread.id, {
     role: 'user',
     content: question
   });
 
-  // 3. 執行 Assistant
-  const run = await client.beta.threads.runs.create(thread.id, {
+  // 2. 使用 streaming 執行 Assistant（取代 polling loop）
+  let reply = '';
+  let annotations = [];
+
+  const run = client.beta.threads.runs.stream(thread.id, {
     assistant_id: assistantId
   });
 
-  // 4. 等待完成（優化輪詢以避免超時）
-  let attempts = 0;
-  const maxAttempts = 40; // 40 次 x 500ms = 最多 20 秒
-
-  while (attempts < maxAttempts) {
-    const response = await fetch(
-      `https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'OpenAI-Beta': 'assistants=v2'
+  // 3. 等待 stream 完成，收集完整回覆
+  for await (const event of run) {
+    if (event.event === 'thread.message.delta') {
+      const delta = event.data.delta;
+      if (delta.content) {
+        for (const block of delta.content) {
+          if (block.type === 'text') {
+            reply += block.text.value || '';
+            if (block.text.annotations) {
+              annotations.push(...block.text.annotations);
+            }
+          }
         }
       }
-    );
-
-    const runStatus = await response.json();
-
-    if (runStatus.status === 'completed') {
-      // 5. 取得回覆
-      const messages = await client.beta.threads.messages.list(thread.id);
-      const assistantMessage = messages.data.find(
-        msg => msg.role === 'assistant' && msg.run_id === run.id
-      );
-
-      if (!assistantMessage) {
-        throw new Error('無法取得 Assistant 回覆');
-      }
-
-      const reply = assistantMessage.content[0].text.value;
-      const annotations = assistantMessage.content[0].text.annotations || [];
-      const confidence = annotations.length > 0 ? 'high' : 'medium';
-
-      return { reply, confidence, sources: annotations };
     }
-
-    if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
-      throw new Error(`Run failed: ${runStatus.last_error?.message || 'Unknown error'}`);
+    if (event.event === 'thread.run.failed') {
+      throw new Error(`Run failed: ${event.data.last_error?.message || 'Unknown error'}`);
     }
-
-    await new Promise(resolve => setTimeout(resolve, 500));
-    attempts++;
   }
 
-  throw new Error('Run timeout');
+  if (!reply) {
+    throw new Error('無法取得 Assistant 回覆');
+  }
+
+  const confidence = annotations.length > 0 ? 'high' : 'medium';
+  return { reply, confidence, sources: annotations };
 }
 
 /**
