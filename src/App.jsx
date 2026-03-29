@@ -19,6 +19,7 @@ function App() {
   const [randomTopics, setRandomTopics] = useState([]);
   const [isDoctorMinimized, setIsDoctorMinimized] = useState(false);
   const [showEGFR, setShowEGFR] = useState(false);
+  const [mobileTab, setMobileTab] = useState('chat');
   const [fontSize, setFontSize] = useState(() => {
     return parseInt(localStorage.getItem('inephro_fontsize') || '15', 10);
   });
@@ -161,8 +162,9 @@ function App() {
         onToggleDarkMode={toggleDarkMode}
       />
 
-      {/* 中欄：對話區 */}
+      {/* 中欄：對話區 (行動版僅在 chat tab 顯示) */}
       <ChatArea
+        className={mobileTab !== 'chat' ? 'mobile-hidden' : ''}
         messages={messages}
         input={input}
         setInput={setInput}
@@ -188,46 +190,116 @@ function App() {
         </div>
       </div>
 
-      {/* 右下角浮動 3D 醫師 (行動版) */}
-      <div className={`doctor-floating ${isDoctorSpeaking ? 'speaking' : ''} ${isDoctorMinimized ? 'minimized' : ''}`}>
-        <button
-          className="doctor-close-btn"
-          onClick={() => setIsDoctorMinimized(!isDoctorMinimized)}
-          title={isDoctorMinimized ? '展開醫師' : '縮小醫師'}
-        >
-          {isDoctorMinimized ? '➕' : '➖'}
-        </button>
-        <ErrorBoundary fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999',fontSize:'12px'}}>載入失敗</div>}>
-          <React.Suspense fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999',fontSize:'12px'}}>載入中...</div>}>
-            <Doctor3D
-              isSpeaking={isDoctorSpeaking}
-              onStopSpeaking={stopSpeaking}
-              isMobile={true}
-              currentText={lastDoctorText}
-            />
-          </React.Suspense>
-        </ErrorBoundary>
-      </div>
+      {/* 行動版：Tab 面板 (非 chat 時顯示) */}
+      {mobileTab === 'nutrition' && (
+        <div className="mobile-panel">
+          <div className="mobile-panel-header">
+            <h3>🥗 營養查詢</h3>
+            <span style={{fontSize:'11px',color:'var(--text-muted)'}}>源自食藥署食品營養成分資料庫</span>
+          </div>
+          <div className="mobile-panel-body">
+            <div className="nutrition-search-box" style={{background:'var(--bg-input)',borderRadius:'12px',padding:'10px'}}>
+              <input
+                type="text"
+                className="nutrition-input"
+                placeholder="輸入食物名稱 (例：香蕉、芭樂)"
+                value={nutritionQuery}
+                onChange={(e) => setNutritionQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleNutritionSearch()}
+                style={{background:'var(--bg-card)',color:'var(--text-primary)',border:'1px solid var(--border-color)'}}
+              />
+              <button
+                className="nutrition-search-btn"
+                onClick={() => handleNutritionSearch()}
+                disabled={isSearchingNutrition}
+              >
+                {isSearchingNutrition ? '⏳' : '🔍'}
+              </button>
+            </div>
+            {nutritionResults && (
+              <div className="nutrition-results" style={{background:'var(--bg-chat)',marginTop:'10px'}}>
+                {nutritionResults.error ? (
+                  <div className="nutrition-error">❌ {nutritionResults.error}</div>
+                ) : nutritionResults.count === 0 ? (
+                  <div className="nutrition-empty">😢 找不到「{nutritionResults.query}」<br/>請嘗試其他關鍵字</div>
+                ) : (
+                  <div className="nutrition-items">
+                    {nutritionResults.results.map((food, idx) => (
+                      <div key={idx} className="nutrition-item">
+                        <div className="nutrition-item-header">
+                          <strong>{food.name}</strong>
+                          <span className="nutrition-category">{food.category}</span>
+                        </div>
+                        <div className="nutrition-values">
+                          <div className="nutrition-value"><span className="label">鈉</span><span className="value">{food.sodium} mg</span></div>
+                          <div className="nutrition-value"><span className="label">鉀</span><span className="value">{food.potassium} mg</span></div>
+                          <div className="nutrition-value"><span className="label">磷</span><span className="value">{food.phosphorus} mg</span></div>
+                          <div className="nutrition-value"><span className="label">鈣</span><span className="value">{food.calcium} mg</span></div>
+                          <div className="nutrition-value"><span className="label">鎂</span><span className="value">{food.magnesium} mg</span></div>
+                        </div>
+                        {food.warnings && food.warnings.length > 0 && (
+                          <div className="nutrition-warnings">
+                            {food.warnings.map((w, wIdx) => (
+                              <div key={wIdx} className={`warning ${w.level}`}>{w.icon} {w.message}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <div className="nutrition-note">💡 數值為每 100g 可食部分</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-      {/* 行動版營養查詢浮動按鈕 */}
-      <button
-        className="nutrition-floating-btn"
-        onClick={() => setShowNutritionModal(true)}
-        title="營養查詢"
-      >
-        🥗
-      </button>
+      {mobileTab === 'egfr' && (
+        <div className="mobile-panel">
+          <div className="mobile-panel-body" style={{display:'flex',justifyContent:'center',padding:'20px'}}>
+            <EGFRCalculator />
+          </div>
+        </div>
+      )}
 
-      {/* 行動版營養查詢彈窗 */}
-      <NutritionModal
-        show={showNutritionModal}
-        onClose={() => setShowNutritionModal(false)}
-        nutritionQuery={nutritionQuery}
-        setNutritionQuery={setNutritionQuery}
-        handleNutritionSearch={handleNutritionSearch}
-        isSearchingNutrition={isSearchingNutrition}
-        nutritionResults={nutritionResults}
-      />
+      {mobileTab === 'doctor' && (
+        <div className="mobile-panel mobile-doctor-panel">
+          <div className="doctor-status" style={{position:'relative',textAlign:'center',margin:'10px auto',width:'fit-content'}}>
+            {isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}
+          </div>
+          <div style={{flex:1,position:'relative'}}>
+            <ErrorBoundary fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999'}}>3D 模型載入失敗</div>}>
+              <React.Suspense fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999'}}>載入中...</div>}>
+                <Doctor3D
+                  isSpeaking={isDoctorSpeaking}
+                  onStopSpeaking={stopSpeaking}
+                  currentText={lastDoctorText}
+                />
+              </React.Suspense>
+            </ErrorBoundary>
+          </div>
+        </div>
+      )}
+
+      {/* 行動版底部導航列 */}
+      <nav className="mobile-bottom-nav">
+        {[
+          { id: 'chat', icon: '💬', label: '對話' },
+          { id: 'nutrition', icon: '🥗', label: '營養' },
+          { id: 'egfr', icon: '🧮', label: 'eGFR' },
+          { id: 'doctor', icon: '👨\u200d⚕️', label: '醫師' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            className={`mobile-nav-item ${mobileTab === tab.id ? 'active' : ''}`}
+            onClick={() => setMobileTab(tab.id)}
+          >
+            <span className="mobile-nav-icon">{tab.icon}</span>
+            <span className="mobile-nav-label">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
 
       {/* eGFR 計算器彈窗 */}
       {showEGFR && (
