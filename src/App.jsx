@@ -162,6 +162,27 @@ function App() {
         onToggleDarkMode={toggleDarkMode}
       />
 
+      {/* 行動版：對話頁內嵌 3D 醫師迷你面板 */}
+      {mobileTab === 'chat' && (
+        <div className={`mobile-doctor-mini ${isDoctorSpeaking ? 'speaking' : 'idle'}`}>
+          <div className="mobile-doctor-mini-canvas">
+            <ErrorBoundary fallback={null}>
+              <React.Suspense fallback={null}>
+                <Doctor3D
+                  isSpeaking={isDoctorSpeaking}
+                  onStopSpeaking={stopSpeaking}
+                  isMobile={true}
+                  currentText={lastDoctorText}
+                />
+              </React.Suspense>
+            </ErrorBoundary>
+          </div>
+          <div className="mobile-doctor-mini-status">
+            {isDoctorSpeaking ? '🗣️ 解說中' : '👂 待命中'}
+          </div>
+        </div>
+      )}
+
       {/* 中欄：對話區 (行動版僅在 chat tab 顯示) */}
       <ChatArea
         className={mobileTab !== 'chat' ? 'mobile-hidden' : ''}
@@ -263,32 +284,12 @@ function App() {
         </div>
       )}
 
-      {mobileTab === 'doctor' && (
-        <div className="mobile-panel mobile-doctor-panel">
-          <div className="doctor-status" style={{position:'relative',textAlign:'center',margin:'10px auto',width:'fit-content'}}>
-            {isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}
-          </div>
-          <div style={{flex:1,position:'relative'}}>
-            <ErrorBoundary fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999'}}>3D 模型載入失敗</div>}>
-              <React.Suspense fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999'}}>載入中...</div>}>
-                <Doctor3D
-                  isSpeaking={isDoctorSpeaking}
-                  onStopSpeaking={stopSpeaking}
-                  currentText={lastDoctorText}
-                />
-              </React.Suspense>
-            </ErrorBoundary>
-          </div>
-        </div>
-      )}
-
-      {/* 行動版底部導航列 */}
+      {/* 行動版底部導航列（3 tabs，醫師改為內嵌） */}
       <nav className="mobile-bottom-nav">
         {[
           { id: 'chat', icon: '💬', label: '對話' },
           { id: 'nutrition', icon: '🥗', label: '營養' },
           { id: 'egfr', icon: '🧮', label: 'eGFR' },
-          { id: 'doctor', icon: '👨\u200d⚕️', label: '醫師' },
         ].map(tab => (
           <button
             key={tab.id}

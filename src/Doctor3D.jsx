@@ -1,4 +1,4 @@
-// src/Doctor3D.jsx - 修復 ESLint 錯誤版 (使用 useRef)
+// src/Doctor3D.jsx - 3D 醫師模型 (動畫修復 + 增強版)
 import React, { useRef, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Environment, ContactShadows } from "@react-three/drei";
@@ -8,162 +8,188 @@ function DoctorModel({ isSpeaking }) {
   const { scene } = useGLTF("/doctor.glb");
   const ref = useRef();
 
-  // ★★★ 關鍵修改：改用 useRef 來存模型引用，而不是 useState ★★★
-  // useRef 的內容是可以被直接修改的，不會被 ESLint 罵
+  // Mesh refs (morph targets)
   const faceMeshRef = useRef(null);
   const teethMeshRef = useRef(null);
+
+  // Bone refs
   const headBoneRef = useRef(null);
   const spineRef = useRef(null);
+  const spine1Ref = useRef(null);
+  const leftShoulderRef = useRef(null);
+  const rightShoulderRef = useRef(null);
   const leftArmRef = useRef(null);
   const rightArmRef = useRef(null);
   const leftForeArmRef = useRef(null);
   const rightForeArmRef = useRef(null);
+  const leftHandRef = useRef(null);
+  const rightHandRef = useRef(null);
+  // 手指 refs（右手食指，用於指向手勢）
+  const rightIndex1Ref = useRef(null);
+  const rightIndex2Ref = useRef(null);
+  const rightIndex3Ref = useRef(null);
 
   useEffect(() => {
     scene.traverse((child) => {
-      // 儲存 Mesh 引用
+      // 儲存 Mesh 引用（含 morph targets）
       if (child.isMesh && child.morphTargetDictionary) {
-        if (child.name === 'Wolf3D_Head') {
-          faceMeshRef.current = child;
-        }
-        if (child.name === 'Wolf3D_Teeth') {
-          teethMeshRef.current = child;
-        }
+        if (child.name === 'Wolf3D_Head') faceMeshRef.current = child;
+        if (child.name === 'Wolf3D_Teeth') teethMeshRef.current = child;
       }
 
-      // 儲存骨骼引用
+      // 儲存骨骼引用 — 使用原始名稱精確匹配
       if (child.isBone) {
-        const name = child.name.toLowerCase();
-
-        // 頭部和身體
-        if (name.includes('head') || name.includes('neck')) {
-          headBoneRef.current = child;
-        }
-        if (name.includes('spine')) {
-          spineRef.current = child;
-        }
-
-        // 手臂
-        if (name.includes('leftarm') || name.includes('left_arm') || name === 'LeftArm') {
-          leftArmRef.current = child;
-        }
-        if (name.includes('rightarm') || name.includes('right_arm') || name === 'RightArm') {
-          rightArmRef.current = child;
-        }
-
-        // 前臂
-        if (name.includes('leftforearm') || name.includes('left_forearm') || name === 'LeftForeArm') {
-          leftForeArmRef.current = child;
-        }
-        if (name.includes('rightforearm') || name.includes('right_forearm') || name === 'RightForeArm') {
-          rightForeArmRef.current = child;
-        }
+        const n = child.name;
+        // 精確匹配 ReadyPlayerMe 骨骼名稱
+        if (n === 'Head') headBoneRef.current = child;
+        if (n === 'Spine') spineRef.current = child;
+        if (n === 'Spine1') spine1Ref.current = child;
+        if (n === 'LeftShoulder') leftShoulderRef.current = child;
+        if (n === 'RightShoulder') rightShoulderRef.current = child;
+        if (n === 'LeftArm') leftArmRef.current = child;
+        if (n === 'RightArm') rightArmRef.current = child;
+        if (n === 'LeftForeArm') leftForeArmRef.current = child;
+        if (n === 'RightForeArm') rightForeArmRef.current = child;
+        if (n === 'LeftHand') leftHandRef.current = child;
+        if (n === 'RightHand') rightHandRef.current = child;
+        if (n === 'RightHandIndex1') rightIndex1Ref.current = child;
+        if (n === 'RightHandIndex2') rightIndex2Ref.current = child;
+        if (n === 'RightHandIndex3') rightIndex3Ref.current = child;
       }
     });
   }, [scene]);
 
-  const BASE_Y = -5.3; 
+  const BASE_Y = -5.3;
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
 
+    // 浮動呼吸動畫（始終運行）
     if (ref.current) {
-      ref.current.position.y = BASE_Y + Math.sin(t) * 0.05;
+      ref.current.position.y = BASE_Y + Math.sin(t * 0.8) * 0.03;
     }
 
-    // --- 說話時的動畫 ---
     if (isSpeaking) {
+      // === 說話時的動畫 ===
       const talkValue = (Math.abs(Math.sin(t * 12)) * 0.55) + (Math.random() * 0.1);
+      const smileValue = 0.3 + Math.sin(t * 0.4) * 0.15; // 微笑 0.15~0.45
 
-      // 1. 嘴巴說話動畫
-      if (faceMeshRef.current) {
-        const idx = faceMeshRef.current.morphTargetDictionary['mouthOpen'];
-        if (idx !== undefined) faceMeshRef.current.morphTargetInfluences[idx] = talkValue;
-      }
-      if (teethMeshRef.current) {
-        const idx = teethMeshRef.current.morphTargetDictionary['mouthOpen'];
-        if (idx !== undefined) teethMeshRef.current.morphTargetInfluences[idx] = talkValue;
-      }
+      // 1. 嘴巴 + 微笑
+      [faceMeshRef, teethMeshRef].forEach(meshRef => {
+        if (!meshRef.current) return;
+        const dict = meshRef.current.morphTargetDictionary;
+        const influences = meshRef.current.morphTargetInfluences;
+        if (dict['mouthOpen'] !== undefined) influences[dict['mouthOpen']] = talkValue;
+        if (dict['mouthSmile'] !== undefined) influences[dict['mouthSmile']] = smileValue;
+      });
 
-      // 2. 頭部自然轉動（左右搖擺）
+      // 2. 頭部自然轉動
       if (headBoneRef.current) {
-        headBoneRef.current.rotation.y = Math.sin(t * 0.5) * 0.15; // 左右轉動 ±8.6度
-        headBoneRef.current.rotation.x = Math.sin(t * 0.3) * 0.10; // 上下點頭 ±5.7度
+        headBoneRef.current.rotation.y = Math.sin(t * 0.5) * 0.20;  // 左右 ±11°
+        headBoneRef.current.rotation.x = Math.sin(t * 0.3) * 0.12;  // 點頭 ±7°
+        headBoneRef.current.rotation.z = Math.sin(t * 0.25) * 0.05; // 微傾 ±3°
       }
 
-      // 3. 身體微微擺動
+      // 3. 身體擺動
       if (spineRef.current) {
-        spineRef.current.rotation.y = Math.sin(t * 0.4) * 0.08; // 身體輕微左右擺動
+        spineRef.current.rotation.y = Math.sin(t * 0.4) * 0.10;
+      }
+      if (spine1Ref.current) {
+        spine1Ref.current.rotation.y = Math.sin(t * 0.35) * 0.05;
       }
 
-      // 4. 手臂輕微擺動（說話時手勢）
+      // 4. 肩膀微動
+      if (leftShoulderRef.current) {
+        leftShoulderRef.current.rotation.z = Math.sin(t * 0.45) * 0.06;
+      }
+      if (rightShoulderRef.current) {
+        rightShoulderRef.current.rotation.z = Math.sin(t * 0.45 + Math.PI) * 0.06;
+      }
+
+      // 5. 手臂手勢（大幅度，明顯可見）
       if (leftArmRef.current) {
-        leftArmRef.current.rotation.z = Math.sin(t * 0.6) * 0.1; // 左臂輕微揮動
-        leftArmRef.current.rotation.x = Math.sin(t * 0.5 + 1) * 0.05; // 前後擺動
+        leftArmRef.current.rotation.z = Math.sin(t * 0.6) * 0.30;  // ±17°
+        leftArmRef.current.rotation.x = Math.sin(t * 0.5 + 1) * 0.15;
       }
       if (rightArmRef.current) {
-        rightArmRef.current.rotation.z = Math.sin(t * 0.6 + Math.PI) * 0.1; // 右臂輕微揮動（相反方向）
-        rightArmRef.current.rotation.x = Math.sin(t * 0.5) * 0.05; // 前後擺動
+        rightArmRef.current.rotation.z = Math.sin(t * 0.6 + Math.PI) * 0.30;
+        rightArmRef.current.rotation.x = Math.sin(t * 0.5) * 0.15;
       }
 
-      // 5. 前臂微微彎曲（更自然的手勢）
+      // 6. 前臂彎曲
       if (leftForeArmRef.current) {
-        leftForeArmRef.current.rotation.y = Math.sin(t * 0.7) * 0.08;
+        leftForeArmRef.current.rotation.y = Math.sin(t * 0.7) * 0.20;
       }
       if (rightForeArmRef.current) {
-        rightForeArmRef.current.rotation.y = Math.sin(t * 0.7 + Math.PI/2) * 0.08;
+        rightForeArmRef.current.rotation.y = Math.sin(t * 0.7 + Math.PI / 2) * 0.20;
+      }
+
+      // 7. 右手食指指向手勢（週期性）
+      const pointCycle = Math.sin(t * 0.3) * 0.5 + 0.5; // 0~1 循環
+      if (pointCycle > 0.7) {
+        // 指向姿勢
+        if (rightIndex1Ref.current) rightIndex1Ref.current.rotation.z = -0.1;
+        if (rightIndex2Ref.current) rightIndex2Ref.current.rotation.z = -0.05;
+        if (rightIndex3Ref.current) rightIndex3Ref.current.rotation.z = 0;
+      } else {
+        // 自然彎曲
+        if (rightIndex1Ref.current) {
+          rightIndex1Ref.current.rotation.z = THREE.MathUtils.lerp(rightIndex1Ref.current.rotation.z, 0.3, 0.1);
+        }
+        if (rightIndex2Ref.current) {
+          rightIndex2Ref.current.rotation.z = THREE.MathUtils.lerp(rightIndex2Ref.current.rotation.z, 0.4, 0.1);
+        }
+        if (rightIndex3Ref.current) {
+          rightIndex3Ref.current.rotation.z = THREE.MathUtils.lerp(rightIndex3Ref.current.rotation.z, 0.3, 0.1);
+        }
       }
 
     } else {
-      // 不說話時，回到正面姿勢
-      if (faceMeshRef.current) {
-        const idx = faceMeshRef.current.morphTargetDictionary['mouthOpen'];
-        if (idx !== undefined) {
-          faceMeshRef.current.morphTargetInfluences[idx] = THREE.MathUtils.lerp(
-            faceMeshRef.current.morphTargetInfluences[idx], 0, 0.15
-          );
-        }
-      }
-      if (teethMeshRef.current) {
-        const idx = teethMeshRef.current.morphTargetDictionary['mouthOpen'];
-        if (idx !== undefined) {
-          teethMeshRef.current.morphTargetInfluences[idx] = THREE.MathUtils.lerp(
-            teethMeshRef.current.morphTargetInfluences[idx], 0, 0.15
-          );
-        }
-      }
+      // === 不說話時：平滑回到中立 ===
+      const lerp = THREE.MathUtils.lerp;
+      const rate = 0.08;
 
-      // 頭部、身體、手臂緩慢回到中立位置
+      // 嘴巴 + 微笑回到0
+      [faceMeshRef, teethMeshRef].forEach(meshRef => {
+        if (!meshRef.current) return;
+        const dict = meshRef.current.morphTargetDictionary;
+        const inf = meshRef.current.morphTargetInfluences;
+        if (dict['mouthOpen'] !== undefined) inf[dict['mouthOpen']] = lerp(inf[dict['mouthOpen']], 0, 0.15);
+        if (dict['mouthSmile'] !== undefined) inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], 0.1, 0.08); // 保持微微笑
+      });
+
+      // 骨骼回到中立
       if (headBoneRef.current) {
-        headBoneRef.current.rotation.y = THREE.MathUtils.lerp(headBoneRef.current.rotation.y, 0, 0.1);
-        headBoneRef.current.rotation.x = THREE.MathUtils.lerp(headBoneRef.current.rotation.x, 0, 0.1);
+        headBoneRef.current.rotation.y = lerp(headBoneRef.current.rotation.y, 0, rate);
+        headBoneRef.current.rotation.x = lerp(headBoneRef.current.rotation.x, 0, rate);
+        headBoneRef.current.rotation.z = lerp(headBoneRef.current.rotation.z, 0, rate);
       }
-      if (spineRef.current) {
-        spineRef.current.rotation.y = THREE.MathUtils.lerp(spineRef.current.rotation.y, 0, 0.1);
-      }
+      if (spineRef.current) spineRef.current.rotation.y = lerp(spineRef.current.rotation.y, 0, rate);
+      if (spine1Ref.current) spine1Ref.current.rotation.y = lerp(spine1Ref.current.rotation.y, 0, rate);
+      if (leftShoulderRef.current) leftShoulderRef.current.rotation.z = lerp(leftShoulderRef.current.rotation.z, 0, rate);
+      if (rightShoulderRef.current) rightShoulderRef.current.rotation.z = lerp(rightShoulderRef.current.rotation.z, 0, rate);
       if (leftArmRef.current) {
-        leftArmRef.current.rotation.z = THREE.MathUtils.lerp(leftArmRef.current.rotation.z, 0, 0.1);
-        leftArmRef.current.rotation.x = THREE.MathUtils.lerp(leftArmRef.current.rotation.x, 0, 0.1);
+        leftArmRef.current.rotation.z = lerp(leftArmRef.current.rotation.z, 0, rate);
+        leftArmRef.current.rotation.x = lerp(leftArmRef.current.rotation.x, 0, rate);
       }
       if (rightArmRef.current) {
-        rightArmRef.current.rotation.z = THREE.MathUtils.lerp(rightArmRef.current.rotation.z, 0, 0.1);
-        rightArmRef.current.rotation.x = THREE.MathUtils.lerp(rightArmRef.current.rotation.x, 0, 0.1);
+        rightArmRef.current.rotation.z = lerp(rightArmRef.current.rotation.z, 0, rate);
+        rightArmRef.current.rotation.x = lerp(rightArmRef.current.rotation.x, 0, rate);
       }
-      if (leftForeArmRef.current) {
-        leftForeArmRef.current.rotation.y = THREE.MathUtils.lerp(leftForeArmRef.current.rotation.y, 0, 0.1);
-      }
-      if (rightForeArmRef.current) {
-        rightForeArmRef.current.rotation.y = THREE.MathUtils.lerp(rightForeArmRef.current.rotation.y, 0, 0.1);
-      }
+      if (leftForeArmRef.current) leftForeArmRef.current.rotation.y = lerp(leftForeArmRef.current.rotation.y, 0, rate);
+      if (rightForeArmRef.current) rightForeArmRef.current.rotation.y = lerp(rightForeArmRef.current.rotation.y, 0, rate);
+      if (rightIndex1Ref.current) rightIndex1Ref.current.rotation.z = lerp(rightIndex1Ref.current.rotation.z, 0.3, rate);
+      if (rightIndex2Ref.current) rightIndex2Ref.current.rotation.z = lerp(rightIndex2Ref.current.rotation.z, 0.4, rate);
+      if (rightIndex3Ref.current) rightIndex3Ref.current.rotation.z = lerp(rightIndex3Ref.current.rotation.z, 0.3, rate);
     }
   });
 
   return (
-    <primitive 
+    <primitive
       ref={ref}
-      object={scene} 
+      object={scene}
       scale={3.2}
-      position={[0, BASE_Y, 0]} 
+      position={[0, BASE_Y, 0]}
     />
   );
 }
@@ -171,30 +197,24 @@ function DoctorModel({ isSpeaking }) {
 // 提取重點文字（從 Markdown 粗體中提取）
 function extractKeywords(text) {
   if (!text) return [];
-
-  // 提取 **粗體** 內容
   const boldRegex = /\*\*(.*?)\*\*/g;
   const keywords = [];
   let match;
-
   while ((match = boldRegex.exec(text)) !== null) {
     const keyword = match[1].trim();
     if (keyword && keyword.length > 1 && keyword.length < 20) {
       keywords.push(keyword);
     }
   }
-
-  // 限制最多顯示 3 個關鍵字
   return keywords.slice(0, 3);
 }
 
 export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false, currentText = '' }) {
   const keywords = extractKeywords(currentText);
 
-  // 行動版：只顯示臉部和頸部的特寫鏡頭
   const cameraSettings = isMobile
-    ? { position: [0, 1.5, 3], fov: 30 } // 更近的距離，更高的角度，只看臉部
-    : { position: [0, 0.5, 6.5], fov: 25 }; // 桌面版：全身
+    ? { position: [0, 1.2, 3.5], fov: 28 }
+    : { position: [0, 0.5, 6.5], fov: 25 };
 
   return (
     <div
@@ -216,60 +236,41 @@ export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false,
         )}
         <OrbitControls
           enableZoom={false}
-          minPolarAngle={isMobile ? Math.PI/2.5 : Math.PI/2.2}
-          maxPolarAngle={isMobile ? Math.PI/2 : Math.PI/1.8}
-          minAzimuthAngle={-Math.PI / 4}
-          maxAzimuthAngle={Math.PI / 4}
+          enablePan={false}
+          minPolarAngle={isMobile ? Math.PI / 2.5 : Math.PI / 2.2}
+          maxPolarAngle={isMobile ? Math.PI / 2 : Math.PI / 1.8}
+          minAzimuthAngle={-Math.PI / 6}
+          maxAzimuthAngle={Math.PI / 6}
         />
       </Canvas>
 
       {/* 背景重點文字 */}
       {isSpeaking && keywords.length > 0 && !isMobile && (
         <div style={{
-          position: 'absolute',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          alignItems: 'center',
-          pointerEvents: 'none',
-          zIndex: 10
+          position: 'absolute', bottom: '20px', left: '50%',
+          transform: 'translateX(-50%)', display: 'flex',
+          flexDirection: 'column', gap: '8px', alignItems: 'center',
+          pointerEvents: 'none', zIndex: 10
         }}>
           {keywords.map((keyword, index) => (
-            <div
-              key={index}
-              style={{
-                background: 'rgba(52, 152, 219, 0.9)',
-                color: 'white',
-                padding: '8px 20px',
-                borderRadius: '20px',
-                fontSize: '14px',
-                fontWeight: '600',
-                backdropFilter: 'blur(10px)',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                animation: `slideIn 0.3s ease-out ${index * 0.1}s both`,
-                whiteSpace: 'nowrap'
-              }}
-            >
+            <div key={index} style={{
+              background: 'rgba(46, 134, 222, 0.9)', color: 'white',
+              padding: '8px 20px', borderRadius: '20px', fontSize: '14px',
+              fontWeight: '600', backdropFilter: 'blur(10px)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              animation: `slideIn 0.3s ease-out ${index * 0.1}s both`,
+              whiteSpace: 'nowrap'
+            }}>
               {keyword}
             </div>
           ))}
         </div>
       )}
 
-      {/* 關鍵字動畫 */}
       <style>{`
         @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
