@@ -809,6 +809,7 @@ body {
   margin-bottom: 10px;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-medium);
+  flex-shrink: 0;
 }
 
 .nutrition-error,
@@ -817,12 +818,14 @@ body {
   text-align: center;
   color: var(--text-muted);
   font-size: 13px;
+  min-height: 40px;
 }
 
 .nutrition-items {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 50px;
 }
 
 .nutrition-item {

@@ -104,7 +104,7 @@ function Sidebar({
         </button>
       </div>
 
-      <div style={{marginTop: 'auto', fontSize: '12px', color: 'var(--sidebar-text-muted, #aaa)', textAlign: 'center'}}>Dr. AI v2.3</div>
+      <div style={{marginTop: '20px', fontSize: '12px', color: 'var(--sidebar-text-muted, #aaa)', textAlign: 'center'}}>Dr. AI v2.3</div>
     </div>
   );
 }
