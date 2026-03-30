@@ -1,6 +1,5 @@
 import React from 'react';
 import { TOPIC_DATA } from '../constants/topics';
-import NutritionResult from './NutritionResult';
 
 function Sidebar({
   activeCategory,
@@ -11,7 +10,6 @@ function Sidebar({
   setNutritionQuery,
   handleNutritionSearch,
   isSearchingNutrition,
-  nutritionResults,
   onShowEGFR,
   onClearMessages,
   fontSize,
@@ -56,9 +54,6 @@ function Sidebar({
           {isSearchingNutrition ? '⏳' : '🔍'}
         </button>
       </div>
-
-      {/* 營養查詢結果 */}
-      <NutritionResult nutritionResults={nutritionResults} />
 
       <hr style={{borderColor: 'var(--border-color)', margin: '6px 0'}} />
 

@@ -12,6 +12,7 @@ import { useNutrition } from './hooks/useNutrition';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import NutritionModal from './components/NutritionModal';
+import NutritionResult from './components/NutritionResult';
 import EGFRCalculator from './components/EGFRCalculator';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
   const [randomTopics, setRandomTopics] = useState([]);
   const [isDoctorMinimized, setIsDoctorMinimized] = useState(false);
   const [showEGFR, setShowEGFR] = useState(false);
+  const [showNutritionPopup, setShowNutritionPopup] = useState(false);
   const [mobileTab, setMobileTab] = useState('chat');
   const [fontSize, setFontSize] = useState(() => {
     return parseInt(localStorage.getItem('inephro_fontsize') || '15', 10);
@@ -86,6 +88,12 @@ function App() {
     showNutritionModal, setShowNutritionModal,
     handleNutritionSearch,
   } = useNutrition();
+
+  // 營養查詢完成後自動彈出結果
+  const handleNutritionSearchWithPopup = async (query) => {
+    await handleNutritionSearch(query);
+    setShowNutritionPopup(true);
+  };
 
   // --- Random topics ---
   const refreshTopics = useCallback(() => {
@@ -162,9 +170,8 @@ function App() {
         randomTopics={randomTopics}
         nutritionQuery={nutritionQuery}
         setNutritionQuery={setNutritionQuery}
-        handleNutritionSearch={handleNutritionSearch}
+        handleNutritionSearch={handleNutritionSearchWithPopup}
         isSearchingNutrition={isSearchingNutrition}
-        nutritionResults={nutritionResults}
         onShowEGFR={() => setShowEGFR(true)}
         onClearMessages={clearMessages}
         fontSize={fontSize}
@@ -355,6 +362,31 @@ function App() {
           ))}
         </nav>
       </div>
+
+      {/* 營養查詢結果彈窗（桌面+行動版共用） */}
+      {showNutritionPopup && nutritionResults && (
+        <div style={{
+          position:'fixed', top:0, left:0, right:0, bottom:0,
+          background:'rgba(0,0,0,0.4)', display:'flex',
+          alignItems:'center', justifyContent:'center', zIndex:2000, padding:'20px',
+        }} onClick={() => setShowNutritionPopup(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background:'var(--bg-card)', borderRadius:'16px', padding:'20px',
+            maxWidth:'500px', width:'100%', maxHeight:'80vh', overflowY:'auto',
+            boxShadow:'var(--shadow-elevated)', border:'1px solid var(--border-color)',
+          }}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
+              <h3 style={{margin:0, color:'var(--text-primary)', fontSize:'16px'}}>
+                🥗 「{nutritionResults.query}」查詢結果（{nutritionResults.count || 0} 筆）
+              </h3>
+              <button onClick={() => setShowNutritionPopup(false)} style={{
+                background:'none', border:'none', fontSize:'20px', cursor:'pointer', color:'var(--text-muted)', padding:'4px'
+              }}>✕</button>
+            </div>
+            <NutritionResult nutritionResults={nutritionResults} />
+          </div>
+        </div>
+      )}
 
       {/* eGFR 計算器彈窗 */}
       {showEGFR && (
