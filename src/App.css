@@ -637,15 +637,17 @@ body {
     overflow-x: hidden;
   }
 
-  /* 顯示快速主題滑動 (固定在頂部) */
-  .quick-topics-container {
+  /* 行動版：隱藏桌面版快速主題，顯示歡迎訊息 */
+  .quick-topics-container.desktop-only {
+    display: none !important;
+  }
+
+  .mobile-welcome-bar {
     display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    margin-top: 0;
+  }
+
+  .mobile-bottom-section {
+    display: flex;
   }
 
   /* 隱藏舊的浮動元素 (改用底部導航) */
@@ -682,8 +684,8 @@ body {
   /* 中間對話區佔滿 */
   .center-stage {
     flex: 1;
-    margin-top: calc(55px + 45vh); /* 快速主題 + 3D 醫師面板 */
-    padding-bottom: 56px; /* 底部導航列留空間 */
+    margin-top: calc(48px + 45vh); /* 歡迎訊息 + 3D 醫師面板 */
+    padding-bottom: 110px; /* 底部主題列 + 導航列留空間 */
     width: 100%;
   }
 
@@ -1036,11 +1038,81 @@ body {
   overflow-y: auto;
 }
 
+/* ===== 行動版歡迎訊息條 ===== */
+.mobile-welcome-bar {
+  display: none; /* 桌面版隱藏 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 16px;
+  text-align: center;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.mobile-welcome-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+.mobile-welcome-disclaimer {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* 桌面版快速主題（行動版隱藏） */
+.quick-topics-container.desktop-only {
+  display: none;
+}
+
+/* ===== 行動版底部區域（主題列 + 導航） ===== */
+.mobile-bottom-section {
+  display: none; /* 桌面版隱藏 */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.mobile-topics-bar {
+  display: flex;
+  overflow-x: auto;
+  padding: 8px 12px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-light);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-topics-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-topics-bar .quick-topic-chip {
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 16px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* ===== 行動版 3D 醫師主面板 ===== */
 .mobile-doctor-mini {
   display: none; /* 桌面版隱藏 */
   position: fixed;
-  top: 55px;
+  top: 48px; /* 歡迎訊息列下方 */
   left: 0;
   right: 0;
   height: 45vh;
@@ -1084,19 +1156,10 @@ body {
 /* ===== 行動版底部導航列 + 面板 ===== */
 .mobile-bottom-nav {
   display: none; /* 桌面版隱藏 */
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 56px;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid var(--border-color);
-  z-index: 1000;
+  height: 52px;
+  background: transparent;
   justify-content: space-around;
   align-items: center;
-  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .mobile-nav-item {
@@ -1149,7 +1212,7 @@ body {
   top: 55px; /* 快速主題列下方 */
   left: 0;
   right: 0;
-  bottom: 56px; /* 底部導航列上方 */
+  bottom: 100px; /* 底部主題列 + 導航列上方 */
   background: var(--bg-card);
   z-index: 50;
   flex-direction: column;
@@ -1378,8 +1441,11 @@ body {
   }
 }
 
-/* ===== 行動版覆蓋：確保底部導航列和面板在手機+平板上顯示 ===== */
+/* ===== 行動版覆蓋：確保行動版元素在手機+平板上顯示 ===== */
 @media (max-width: 1024px) {
+  .mobile-bottom-section {
+    display: flex !important;
+  }
   .mobile-bottom-nav {
     display: flex !important;
   }
@@ -1391,5 +1457,11 @@ body {
   }
   .mobile-doctor-mini {
     display: block !important;
+  }
+  .mobile-welcome-bar {
+    display: block !important;
+  }
+  .quick-topics-container.desktop-only {
+    display: none !important;
   }
 }

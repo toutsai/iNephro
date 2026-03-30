@@ -120,8 +120,18 @@ function App() {
 
   return (
     <div className="main-container">
-      {/* 快速主題橫向滑動 (行動版) */}
-      <div className="quick-topics-container">
+      {/* 行動版頂部：歡迎訊息 + 免責聲明 */}
+      <div className="mobile-welcome-bar">
+        <div className="mobile-welcome-text">
+          iNephro 智能醫師 — 腎臟科衛教諮詢
+        </div>
+        <div className="mobile-welcome-disclaimer">
+          ⚠️ 衛教輔助工具，非醫療診斷。請遵循主治醫師建議。
+        </div>
+      </div>
+
+      {/* 桌面版：快速主題橫向滑動（行動版隱藏，改到底部導航上方） */}
+      <div className="quick-topics-container desktop-only">
         <div className="quick-topics">
           {Object.keys(TOPIC_DATA).map(key => (
             <div
@@ -287,23 +297,50 @@ function App() {
         </div>
       )}
 
-      {/* 行動版底部導航列（3 tabs，醫師改為內嵌） */}
-      <nav className="mobile-bottom-nav">
-        {[
-          { id: 'chat', icon: '💬', label: '對話' },
-          { id: 'nutrition', icon: '🥗', label: '營養' },
-          { id: 'egfr', icon: '🧮', label: 'eGFR' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            className={`mobile-nav-item ${mobileTab === tab.id ? 'active' : ''}`}
-            onClick={() => setMobileTab(tab.id)}
-          >
-            <span className="mobile-nav-icon">{tab.icon}</span>
-            <span className="mobile-nav-label">{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+      {/* 行動版底部：主題橫向滾動 + 導航列 */}
+      <div className="mobile-bottom-section">
+        {/* 主題橫向滾動列 */}
+        <div className="mobile-topics-bar">
+          {Object.keys(TOPIC_DATA).map(key => (
+            <div
+              key={key}
+              className={`quick-topic-chip ${activeCategory === key ? 'active' : ''}`}
+              onClick={() => { setMobileTab('chat'); handleMenuClick(key); }}
+            >
+              ⭐ {TOPIC_DATA[key].title}
+            </div>
+          ))}
+          {randomTopics.map((keyword, index) => (
+            <div
+              key={`quick-${index}`}
+              className={`quick-topic-chip ${activeCategory === keyword ? 'active' : ''}`}
+              onClick={() => { setMobileTab('chat'); handleMenuClick(keyword); }}
+            >
+              {keyword}
+            </div>
+          ))}
+          <div className="quick-topic-chip" onClick={refreshTopics} style={{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)'}}>
+            🔄 換一組
+          </div>
+        </div>
+        {/* 導航列 */}
+        <nav className="mobile-bottom-nav">
+          {[
+            { id: 'chat', icon: '💬', label: '對話' },
+            { id: 'nutrition', icon: '🥗', label: '營養' },
+            { id: 'egfr', icon: '🧮', label: 'eGFR' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              className={`mobile-nav-item ${mobileTab === tab.id ? 'active' : ''}`}
+              onClick={() => setMobileTab(tab.id)}
+            >
+              <span className="mobile-nav-icon">{tab.icon}</span>
+              <span className="mobile-nav-label">{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
 
       {/* eGFR 計算器彈窗 */}
       {showEGFR && (
