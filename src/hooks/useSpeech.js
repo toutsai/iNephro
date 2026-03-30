@@ -99,9 +99,9 @@ export function useSpeech() {
     setCurrentSpeechText(textToSpeak);
     setRevealedIndex(0);
 
-    // 啟動 KTV 字幕估時（通用，不依賴 TTS 方式）
-    const startKTVTimer = () => {
-      const msPerChar = 200;
+    // KTV 字幕計時器（接受速度參數）
+    const startKTVTimer = (msPerChar = 200) => {
+      if (revealTimerRef.current) clearInterval(revealTimerRef.current);
       let idx = 0;
       revealTimerRef.current = setInterval(() => {
         idx += 1;
@@ -120,7 +120,7 @@ export function useSpeech() {
     // === 行動版：用 Google Cloud TTS 台灣男聲 ===
     if (isMobileDevice && !isConfirmedMale.current) {
       setIsDoctorSpeaking(true);
-      startKTVTimer();
+      startKTVTimer(300); // Google Cloud TTS 語速較慢，300ms/字
 
       fetch('/api/tts-google', {
         method: 'POST',
