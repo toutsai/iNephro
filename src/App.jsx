@@ -34,6 +34,7 @@ function App() {
     isDoctorSpeaking, setIsDoctorSpeaking,
     isRecording,
     speak, stopSpeaking, handleVoiceInput,
+    revealedIndex, currentSpeechText,
   } = useSpeech();
 
   const {
@@ -193,6 +194,8 @@ function App() {
         handleVoiceInput={() => handleVoiceInput(setInput)}
         isRecording={isRecording}
         isDoctorSpeaking={isDoctorSpeaking}
+        revealedIndex={revealedIndex}
+        currentSpeechText={currentSpeechText}
       />
 
       {/* 右欄：3D 醫師 (桌面版) */}

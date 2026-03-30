@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 export function useSpeech() {
   const [isDoctorSpeaking, setIsDoctorSpeaking] = useState(false);
@@ -8,10 +8,15 @@ export function useSpeech() {
   const [googleVoice, setGoogleVoice] = useState('tw-male-1');
   const audioRef = useRef(null);
 
+  // KTV 字幕：目前已顯示的字元索引
+  const [revealedIndex, setRevealedIndex] = useState(-1);
+  const [currentSpeechText, setCurrentSpeechText] = useState('');
+  const revealTimerRef = useRef(null);
+  const checkIntervalRef = useRef(null);
+
   useEffect(() => {
     const loadVoices = () => {
       const all = window.speechSynthesis.getVoices();
-      console.log('🔍 偵測到的語音列表:', all.map(v => `${v.name} (${v.lang})`));
 
       const chinese = all.filter(v =>
         v.lang.includes('zh') ||
@@ -20,43 +25,42 @@ export function useSpeech() {
         v.lang.includes('nan')
       );
 
-      // 常見女聲名字黑名單
-      const femaleNames = ['ting-ting', 'sin-ji', 'mei-jia', 'ya-ling', 'female', '女'];
+      // 女聲黑名單
+      const femaleNames = ['ting-ting', 'sin-ji', 'mei-jia', 'ya-ling', 'female', '女', 'woman', '女性'];
 
       // 1. 優先：志偉語音
       const zhiwei = chinese.find(v =>
-        v.name.toLowerCase().includes('zhiwei') ||
-        v.name.includes('志偉')
+        v.name.toLowerCase().includes('zhiwei') || v.name.includes('志偉')
       );
 
-      // 2. 次選：明確標註男聲
+      // 2. 次選：男聲（擴大偵測範圍，支援 Android）
       const maleChinese = chinese.find(v => {
         const lowerName = v.name.toLowerCase();
+        const zhName = v.name;
         return (
           lowerName.includes('male') ||
-          v.name.includes('男') ||
+          zhName.includes('男') ||
+          zhName.includes('男聲') ||
           lowerName.includes('yunyang') ||
-          lowerName.includes('云揚')
+          lowerName.includes('云揚') ||
+          lowerName.includes('man') ||
+          zhName.includes('- 男')
         );
       });
 
-      // 3. 備選：排除女聲後的第一個中文語音
+      // 3. 備選：排除女聲
       const notFemale = chinese.find(v => {
         const lowerName = v.name.toLowerCase();
-        return !femaleNames.some(fn => lowerName.includes(fn));
+        return !femaleNames.some(fn => lowerName.includes(fn.toLowerCase()));
       });
 
       if (zhiwei) {
-        console.log('✅ 使用志偉語音:', zhiwei.name);
         setSelectedVoice(zhiwei);
       } else if (maleChinese) {
-        console.log('✅ 使用中文男聲:', maleChinese.name);
         setSelectedVoice(maleChinese);
       } else if (notFemale) {
-        console.log('⚠️ 使用非女聲的中文語音:', notFemale.name);
         setSelectedVoice(notFemale);
       } else if (chinese.length > 0) {
-        console.log('⚠️ 使用任意中文語音（可能為女聲）:', chinese[0].name);
         setSelectedVoice(chinese[0]);
       }
     };
@@ -64,58 +68,108 @@ export function useSpeech() {
     loadVoices();
   }, []);
 
-  const speak = (rawText) => {
+  const speak = useCallback((rawText) => {
     window.speechSynthesis.cancel();
 
-    // 過濾掉按鈕指令
+    // 清理文字
     let textToSpeak = rawText.split('///')[0];
-
-    // 過濾符號和特殊標記
     textToSpeak = textToSpeak
-      .replace(/✓\s*\*此回答基於專業知識庫\*/g, '') // 移除知識庫標記
-      .replace(/💡\s*AI 搜尋回答/g, '') // 移除 AI 搜尋標記
-      .replace(/【.*?】/g, '') // 移除【】內的文字
-      .replace(/\[.*?\]/g, '') // 移除 [source] 等
-      .replace(/source/gi, '') // 移除 source 文字
-      .replace(/\*\*/g, '') // 移除粗體標記 **
-      .replace(/✓|✗|●|►|•|💡/g, '') // 移除特殊符號
-      .replace(/\n{2,}/g, '\n') // 多個換行改成單個
+      .replace(/✓\s*\*此回答基於專業知識庫\*/g, '')
+      .replace(/💡\s*AI 搜尋回答/g, '')
+      .replace(/【.*?】/g, '')
+      .replace(/\[.*?\]/g, '')
+      .replace(/source/gi, '')
+      .replace(/\*\*/g, '')
+      .replace(/✓|✗|●|►|•|💡/g, '')
+      .replace(/\n{2,}/g, '\n')
       .trim();
+
+    // 設定 KTV 字幕文字
+    setCurrentSpeechText(textToSpeak);
+    setRevealedIndex(0);
 
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     if (selectedVoice) {
       utterance.voice = selectedVoice;
       utterance.lang = selectedVoice.lang;
     }
+
+    // 判斷是否為女聲，用 pitch 補償
+    const isFemaleVoice = selectedVoice && (
+      selectedVoice.name.includes('女') ||
+      selectedVoice.name.toLowerCase().includes('female') ||
+      selectedVoice.name.toLowerCase().includes('ting-ting')
+    );
     utterance.rate = 1.0;
-    utterance.onstart = () => setIsDoctorSpeaking(true);
-    utterance.onend = () => setIsDoctorSpeaking(false);
-    utterance.onerror = () => setIsDoctorSpeaking(false);
+    utterance.pitch = isFemaleVoice ? 0.75 : 0.85; // 女聲降更多，男聲也微降
+
+    // KTV 字幕：嘗試用 onboundary 精確同步
+    let hasReceivedBoundary = false;
+    utterance.onboundary = (event) => {
+      if (event.charIndex !== undefined) {
+        hasReceivedBoundary = true;
+        setRevealedIndex(event.charIndex + (event.charLength || 1));
+      }
+    };
+
+    utterance.onstart = () => {
+      setIsDoctorSpeaking(true);
+
+      // Fallback：500ms 後如果沒收到 boundary 事件，用估時逐字顯示
+      setTimeout(() => {
+        if (!hasReceivedBoundary && textToSpeak.length > 0) {
+          const msPerChar = 120; // 中文約每字 120ms
+          let idx = 0;
+          revealTimerRef.current = setInterval(() => {
+            idx += 1;
+            setRevealedIndex(Math.min(idx, textToSpeak.length));
+            if (idx >= textToSpeak.length) {
+              clearInterval(revealTimerRef.current);
+            }
+          }, msPerChar);
+        }
+      }, 500);
+    };
+
+    utterance.onend = () => {
+      setIsDoctorSpeaking(false);
+      setRevealedIndex(textToSpeak.length); // 顯示全部
+      if (revealTimerRef.current) clearInterval(revealTimerRef.current);
+    };
+    utterance.onerror = () => {
+      setIsDoctorSpeaking(false);
+      setRevealedIndex(textToSpeak.length);
+      if (revealTimerRef.current) clearInterval(revealTimerRef.current);
+    };
+
     window.speechSynthesis.speak(utterance);
 
-    // Chrome bug 修正：speechSynthesis 長文本可能不觸發 onend
-    // 定期檢查 speaking 狀態，如果已停止但 state 還是 true 就強制修正
-    const checkInterval = setInterval(() => {
+    // Chrome bug 修正
+    checkIntervalRef.current = setInterval(() => {
       if (!window.speechSynthesis.speaking) {
         setIsDoctorSpeaking(false);
-        clearInterval(checkInterval);
+        setRevealedIndex(textToSpeak.length);
+        clearInterval(checkIntervalRef.current);
+        if (revealTimerRef.current) clearInterval(revealTimerRef.current);
       }
     }, 500);
 
-    // 安全閥：最多 60 秒後強制停止
     setTimeout(() => {
-      clearInterval(checkInterval);
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
-      }
+      if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
+      if (revealTimerRef.current) clearInterval(revealTimerRef.current);
+      if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
       setIsDoctorSpeaking(false);
+      setRevealedIndex(textToSpeak.length);
     }, 60000);
-  };
+  }, [selectedVoice]);
 
-  const stopSpeaking = () => {
+  const stopSpeaking = useCallback(() => {
     window.speechSynthesis.cancel();
     setIsDoctorSpeaking(false);
-  };
+    if (currentSpeechText) setRevealedIndex(currentSpeechText.length);
+    if (revealTimerRef.current) clearInterval(revealTimerRef.current);
+    if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
+  }, [currentSpeechText]);
 
   const handleVoiceInput = (setInput) => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -147,5 +201,7 @@ export function useSpeech() {
     speak,
     stopSpeaking,
     handleVoiceInput,
+    revealedIndex,
+    currentSpeechText,
   };
 }

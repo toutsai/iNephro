@@ -1248,6 +1248,27 @@ body {
   border-bottom-color: var(--border-color);
 }
 
+/* === KTV 字幕效果 === */
+.message.doctor.ktv-active {
+  border-left-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow), var(--shadow-medium);
+}
+
+.ktv-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--accent);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: ktvBlink 0.6s infinite;
+}
+
+@keyframes ktvBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
 /* === 字體大小控制 === */
 .font-size-controls {
   display: flex;
