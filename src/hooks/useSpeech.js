@@ -75,8 +75,12 @@ export function useSpeech() {
     loadVoices();
   }, []);
 
+  // 偵測是否為行動裝置（用 Google Cloud TTS 男聲取代瀏覽器女聲）
+  const isMobileDevice = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
   const speak = useCallback((rawText) => {
     window.speechSynthesis.cancel();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
 
     // 清理文字
     let textToSpeak = rawText.split('///')[0];
@@ -95,17 +99,72 @@ export function useSpeech() {
     setCurrentSpeechText(textToSpeak);
     setRevealedIndex(0);
 
+    // 啟動 KTV 字幕估時（通用，不依賴 TTS 方式）
+    const startKTVTimer = () => {
+      const msPerChar = 200;
+      let idx = 0;
+      revealTimerRef.current = setInterval(() => {
+        idx += 1;
+        setRevealedIndex(Math.min(idx, textToSpeak.length));
+        if (idx >= textToSpeak.length) clearInterval(revealTimerRef.current);
+      }, msPerChar);
+    };
+
+    const finishSpeaking = () => {
+      setIsDoctorSpeaking(false);
+      setRevealedIndex(textToSpeak.length);
+      if (revealTimerRef.current) clearInterval(revealTimerRef.current);
+      if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
+    };
+
+    // === 行動版：用 Google Cloud TTS 台灣男聲 ===
+    if (isMobileDevice && !isConfirmedMale.current) {
+      setIsDoctorSpeaking(true);
+      startKTVTimer();
+
+      fetch('/api/tts-google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: textToSpeak.substring(0, 5000), voice: 'tw-male-1' })
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('TTS API error');
+          return res.blob();
+        })
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audioRef.current = audio;
+          audio.onended = () => { finishSpeaking(); URL.revokeObjectURL(url); };
+          audio.onerror = () => { finishSpeaking(); URL.revokeObjectURL(url); };
+          audio.play().catch(() => {
+            // iOS 可能需要使用者手勢才能播放，降級到瀏覽器 TTS
+            finishSpeaking();
+            speakWithBrowser(textToSpeak, startKTVTimer, finishSpeaking);
+          });
+        })
+        .catch(() => {
+          // Google Cloud TTS 失敗，降級到瀏覽器 TTS
+          speakWithBrowser(textToSpeak, startKTVTimer, finishSpeaking);
+        });
+
+      return;
+    }
+
+    // === 桌面版/已確認男聲：用瀏覽器原生 TTS ===
+    speakWithBrowser(textToSpeak, startKTVTimer, finishSpeaking);
+  }, [selectedVoice, isMobileDevice]);
+
+  // 瀏覽器原生 TTS（桌面版或降級用）
+  const speakWithBrowser = useCallback((textToSpeak, startKTVTimer, finishSpeaking) => {
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     if (selectedVoice) {
       utterance.voice = selectedVoice;
       utterance.lang = selectedVoice.lang;
     }
-
-    // Pitch 補償：確認男聲用 0.9，不確定或女聲用 0.7（讓聲音更低沉）
     utterance.rate = 1.0;
     utterance.pitch = isConfirmedMale.current ? 0.9 : 0.7;
 
-    // KTV 字幕：嘗試用 onboundary 精確同步
     let hasReceivedBoundary = false;
     utterance.onboundary = (event) => {
       if (event.charIndex !== undefined) {
@@ -116,43 +175,21 @@ export function useSpeech() {
 
     utterance.onstart = () => {
       setIsDoctorSpeaking(true);
-
-      // Fallback：500ms 後如果沒收到 boundary 事件，用估時逐字顯示
       setTimeout(() => {
         if (!hasReceivedBoundary && textToSpeak.length > 0) {
-          const msPerChar = 220; // 中文語音約每字 220ms
-          let idx = 0;
-          revealTimerRef.current = setInterval(() => {
-            idx += 1;
-            setRevealedIndex(Math.min(idx, textToSpeak.length));
-            if (idx >= textToSpeak.length) {
-              clearInterval(revealTimerRef.current);
-            }
-          }, msPerChar);
+          startKTVTimer();
         }
       }, 500);
     };
 
-    utterance.onend = () => {
-      setIsDoctorSpeaking(false);
-      setRevealedIndex(textToSpeak.length); // 顯示全部
-      if (revealTimerRef.current) clearInterval(revealTimerRef.current);
-    };
-    utterance.onerror = () => {
-      setIsDoctorSpeaking(false);
-      setRevealedIndex(textToSpeak.length);
-      if (revealTimerRef.current) clearInterval(revealTimerRef.current);
-    };
-
+    utterance.onend = () => finishSpeaking();
+    utterance.onerror = () => finishSpeaking();
     window.speechSynthesis.speak(utterance);
 
-    // Chrome bug 修正
+    // Chrome onend bug 修正
     checkIntervalRef.current = setInterval(() => {
       if (!window.speechSynthesis.speaking) {
-        setIsDoctorSpeaking(false);
-        setRevealedIndex(textToSpeak.length);
-        clearInterval(checkIntervalRef.current);
-        if (revealTimerRef.current) clearInterval(revealTimerRef.current);
+        finishSpeaking();
       }
     }, 500);
 
@@ -167,6 +204,7 @@ export function useSpeech() {
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis.cancel();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setIsDoctorSpeaking(false);
     if (currentSpeechText) setRevealedIndex(currentSpeechText.length);
     if (revealTimerRef.current) clearInterval(revealTimerRef.current);
