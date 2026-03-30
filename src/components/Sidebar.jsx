@@ -35,10 +35,10 @@ function Sidebar({
         </div>
       ))}
 
-      <hr style={{borderColor: 'var(--border-color)', margin: '10px 0'}} />
+      <hr style={{borderColor: 'var(--border-color)', margin: '6px 0'}} />
 
       {/* 2. 營養查詢 */}
-      <div style={{fontSize:'12px', color:'var(--sidebar-text-muted, #aaa)', marginBottom:'5px', paddingLeft:'10px'}}>🥗 營養查詢(源自食藥署食品營養成分資料庫)</div>
+      <div style={{fontSize:'11px', color:'var(--sidebar-text-muted, #aaa)', marginBottom:'3px', paddingLeft:'10px'}}>🥗 營養查詢(食藥署資料庫)</div>
       <div className="nutrition-search-box">
         <input
           type="text"
@@ -60,7 +60,7 @@ function Sidebar({
       {/* 營養查詢結果 */}
       <NutritionResult nutritionResults={nutritionResults} />
 
-      <hr style={{borderColor: 'var(--border-color)', margin: '10px 0'}} />
+      <hr style={{borderColor: 'var(--border-color)', margin: '6px 0'}} />
 
       {/* 3. 隨機熱搜主題 */}
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', paddingRight:'10px', marginBottom:'3px'}}>
@@ -80,10 +80,10 @@ function Sidebar({
         </div>
       ))}
 
-      <hr style={{borderColor: 'var(--border-color)', margin: '10px 0'}} />
+      <hr style={{borderColor: 'var(--border-color)', margin: '6px 0'}} />
 
       {/* 4. 工具 */}
-      <div style={{fontSize:'12px', color:'var(--sidebar-text-muted, #aaa)', marginBottom:'5px', paddingLeft:'10px'}}>🔧 工具</div>
+      <div style={{fontSize:'11px', color:'var(--sidebar-text-muted, #aaa)', marginBottom:'3px', paddingLeft:'10px'}}>🔧 工具</div>
       <div className="menu-item compact" onClick={onShowEGFR} style={{cursor:'pointer'}}>
         🧮 eGFR 計算器
       </div>
@@ -92,13 +92,13 @@ function Sidebar({
       </div>
 
       {/* 5. 字體大小控制 + 深色模式 */}
-      <div style={{padding:'10px', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px'}}>
+      <div style={{padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px'}}>
         <span className="font-size-label">字體</span>
         <button className="font-size-btn" onClick={() => onFontSizeChange(-1)} aria-label="縮小字體">A-</button>
         <span className="font-size-label">{fontSize}px</span>
         <button className="font-size-btn" onClick={() => onFontSizeChange(1)} aria-label="放大字體">A+</button>
       </div>
-      <div style={{padding:'0 10px 10px', display:'flex', justifyContent:'center'}}>
+      <div style={{padding:'0 10px 6px', display:'flex', justifyContent:'center'}}>
         <button className="theme-toggle-btn" onClick={onToggleDarkMode} aria-label="切換深色模式">
           {darkMode ? '☀️ 亮色' : '🌙 深色'}
         </button>
