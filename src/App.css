@@ -824,14 +824,14 @@ body {
 .nutrition-items {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   min-height: 50px;
 }
 
 .nutrition-item {
   background: var(--bg-primary);
   border-radius: 8px;
-  padding: 12px;
+  padding: 8px 10px;
   border: 1px solid var(--border-color);
 }
 
@@ -839,12 +839,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .nutrition-item-header strong {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .nutrition-alias {
@@ -864,16 +864,16 @@ body {
 
 .nutrition-values {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-bottom: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
 .nutrition-value {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  padding: 6px 8px;
+  font-size: 11px;
+  padding: 3px 6px;
   background: var(--bg-input);
   border-radius: 4px;
 }
@@ -891,12 +891,12 @@ body {
 .nutrition-warnings {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 4px;
+  margin-top: 6px;
 }
 
 .nutrition-warnings .warning {
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
