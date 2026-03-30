@@ -14,6 +14,9 @@ export function useSpeech() {
   const revealTimerRef = useRef(null);
   const checkIntervalRef = useRef(null);
 
+  // 記錄是否確認為男聲
+  const isConfirmedMale = useRef(false);
+
   useEffect(() => {
     const loadVoices = () => {
       const all = window.speechSynthesis.getVoices();
@@ -33,7 +36,7 @@ export function useSpeech() {
         v.name.toLowerCase().includes('zhiwei') || v.name.includes('志偉')
       );
 
-      // 2. 次選：男聲（擴大偵測範圍，支援 Android）
+      // 2. 次選：男聲
       const maleChinese = chinese.find(v => {
         const lowerName = v.name.toLowerCase();
         const zhName = v.name;
@@ -56,12 +59,16 @@ export function useSpeech() {
 
       if (zhiwei) {
         setSelectedVoice(zhiwei);
+        isConfirmedMale.current = true;
       } else if (maleChinese) {
         setSelectedVoice(maleChinese);
+        isConfirmedMale.current = true;
       } else if (notFemale) {
         setSelectedVoice(notFemale);
+        isConfirmedMale.current = false; // 不確定性別
       } else if (chinese.length > 0) {
         setSelectedVoice(chinese[0]);
+        isConfirmedMale.current = false;
       }
     };
     window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -94,14 +101,9 @@ export function useSpeech() {
       utterance.lang = selectedVoice.lang;
     }
 
-    // 判斷是否為女聲，用 pitch 補償
-    const isFemaleVoice = selectedVoice && (
-      selectedVoice.name.includes('女') ||
-      selectedVoice.name.toLowerCase().includes('female') ||
-      selectedVoice.name.toLowerCase().includes('ting-ting')
-    );
+    // Pitch 補償：確認男聲用 0.9，不確定或女聲用 0.7（讓聲音更低沉）
     utterance.rate = 1.0;
-    utterance.pitch = isFemaleVoice ? 0.75 : 0.85; // 女聲降更多，男聲也微降
+    utterance.pitch = isConfirmedMale.current ? 0.9 : 0.7;
 
     // KTV 字幕：嘗試用 onboundary 精確同步
     let hasReceivedBoundary = false;
@@ -118,7 +120,7 @@ export function useSpeech() {
       // Fallback：500ms 後如果沒收到 boundary 事件，用估時逐字顯示
       setTimeout(() => {
         if (!hasReceivedBoundary && textToSpeak.length > 0) {
-          const msPerChar = 120; // 中文約每字 120ms
+          const msPerChar = 220; // 中文語音約每字 220ms
           let idx = 0;
           revealTimerRef.current = setInterval(() => {
             idx += 1;
