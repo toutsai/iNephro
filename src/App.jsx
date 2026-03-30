@@ -297,43 +297,57 @@ function App() {
         </div>
       )}
 
-      {/* 行動版底部：主題橫向滾動 + 導航列 */}
+      {/* 行動版底部導航列（含展開式主題面板） */}
       <div className="mobile-bottom-section">
-        {/* 主題橫向滾動列 */}
-        <div className="mobile-topics-bar">
-          {Object.keys(TOPIC_DATA).map(key => (
-            <div
-              key={key}
-              className={`quick-topic-chip ${activeCategory === key ? 'active' : ''}`}
-              onClick={() => { setMobileTab('chat'); handleMenuClick(key); }}
-            >
-              ⭐ {TOPIC_DATA[key].title}
+        {/* 展開式主題面板 */}
+        {mobileTab === 'featured' && (
+          <div className="mobile-topics-panel">
+            <div className="mobile-topics-panel-title">⭐ 精選主題</div>
+            <div className="mobile-topics-grid">
+              {Object.keys(TOPIC_DATA).map(key => (
+                <div key={key} className="mobile-topic-item"
+                  onClick={() => { setMobileTab('chat'); handleMenuClick(key); }}>
+                  {TOPIC_DATA[key].title}
+                </div>
+              ))}
             </div>
-          ))}
-          {randomTopics.map((keyword, index) => (
-            <div
-              key={`quick-${index}`}
-              className={`quick-topic-chip ${activeCategory === keyword ? 'active' : ''}`}
-              onClick={() => { setMobileTab('chat'); handleMenuClick(keyword); }}
-            >
-              {keyword}
-            </div>
-          ))}
-          <div className="quick-topic-chip" onClick={refreshTopics} style={{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)'}}>
-            🔄 換一組
           </div>
-        </div>
+        )}
+        {mobileTab === 'trending' && (
+          <div className="mobile-topics-panel">
+            <div className="mobile-topics-panel-title" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span>🔥 今日熱搜</span>
+              <button onClick={refreshTopics} style={{background:'none',border:'none',color:'var(--accent)',fontSize:'13px',cursor:'pointer'}}>🔄 換一組</button>
+            </div>
+            <div className="mobile-topics-grid">
+              {randomTopics.map((keyword, index) => (
+                <div key={index} className="mobile-topic-item"
+                  onClick={() => { setMobileTab('chat'); handleMenuClick(keyword); }}>
+                  {keyword}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* 導航列 */}
         <nav className="mobile-bottom-nav">
           {[
             { id: 'chat', icon: '💬', label: '對話' },
+            { id: 'featured', icon: '⭐', label: '精選' },
+            { id: 'trending', icon: '🔥', label: '熱搜' },
             { id: 'nutrition', icon: '🥗', label: '營養' },
             { id: 'egfr', icon: '🧮', label: 'eGFR' },
           ].map(tab => (
             <button
               key={tab.id}
               className={`mobile-nav-item ${mobileTab === tab.id ? 'active' : ''}`}
-              onClick={() => setMobileTab(tab.id)}
+              onClick={() => {
+                if ((tab.id === 'featured' || tab.id === 'trending') && mobileTab === tab.id) {
+                  setMobileTab('chat'); // 再次點擊收合
+                } else {
+                  setMobileTab(tab.id);
+                }
+              }}
             >
               <span className="mobile-nav-icon">{tab.icon}</span>
               <span className="mobile-nav-label">{tab.label}</span>
