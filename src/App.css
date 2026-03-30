@@ -800,19 +800,20 @@ body {
 }
 
 .nutrition-results {
-  max-height: 400px;
+  max-height: 600px;
   overflow-y: auto;
   padding: 10px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-chat);
   border-radius: 8px;
   margin-bottom: 10px;
+  border: 1px solid var(--border-color);
 }
 
 .nutrition-error,
 .nutrition-empty {
   padding: 15px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -823,10 +824,10 @@ body {
 }
 
 .nutrition-item {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
   border-radius: 8px;
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
 }
 
 .nutrition-item-header {
@@ -837,21 +838,21 @@ body {
 }
 
 .nutrition-item-header strong {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .nutrition-alias {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
   font-style: italic;
   margin-left: 6px;
 }
 
 .nutrition-category {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  background: var(--bg-input);
   padding: 2px 8px;
   border-radius: 12px;
 }
@@ -868,17 +869,17 @@ body {
   justify-content: space-between;
   font-size: 12px;
   padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-input);
   border-radius: 4px;
 }
 
 .nutrition-value .label {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .nutrition-value .value {
-  color: #4CAF50;
+  color: #16a34a;
   font-weight: bold;
 }
 
@@ -897,41 +898,48 @@ body {
 }
 
 .warning.danger {
-  background: rgba(244, 67, 54, 0.2);
-  border: 1px solid #f44336;
-  color: #ffcdd2;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid #ef4444;
+  color: #dc2626;
 }
 
 .warning.warning {
-  background: rgba(255, 152, 0, 0.2);
-  border: 1px solid #ff9800;
-  color: #ffe0b2;
+  background: rgba(255, 152, 0, 0.1);
+  border: 1px solid #f59e0b;
+  color: #d97706;
 }
 
 .warning.caution {
-  background: rgba(33, 150, 243, 0.2);
-  border: 1px solid #2196F3;
-  color: #bbdefb;
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid #3b82f6;
+  color: #2563eb;
 }
 
 .warning.success {
-  background: rgba(76, 175, 80, 0.2);
-  border: 1px solid #4CAF50;
-  color: #c8e6c9;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid #22c55e;
+  color: #16a34a;
 }
 
 .warning.info {
-  background: rgba(255, 235, 59, 0.2);
-  border: 1px solid #FFEB3B;
-  color: #fff9c4;
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid #eab308;
+  color: #a16207;
 }
+
+/* 深色模式：警告顏色回調為淺色文字 */
+[data-theme="dark"] .warning.danger { color: #fca5a5; }
+[data-theme="dark"] .warning.warning { color: #fcd34d; }
+[data-theme="dark"] .warning.caution { color: #93c5fd; }
+[data-theme="dark"] .warning.success { color: #86efac; }
+[data-theme="dark"] .warning.info { color: #fde68a; }
 
 .nutrition-note {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-color);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   text-align: center;
 }
 
