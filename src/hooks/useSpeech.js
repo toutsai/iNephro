@@ -120,7 +120,7 @@ export function useSpeech() {
     // === 行動版：用 Google Cloud TTS 台灣男聲 ===
     if (isMobileDevice && !isConfirmedMale.current) {
       setIsDoctorSpeaking(true);
-      startKTVTimer(300); // Google Cloud TTS 語速較慢，300ms/字
+      startKTVTimer(250); // Google Cloud TTS 語速較慢，250ms/字
 
       fetch('/api/tts-google', {
         method: 'POST',
