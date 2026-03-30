@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const INITIAL_MESSAGE = {
   role: 'doctor',
-  text: '您好！請點選下方主題，或直接問我腎臟相關問題。',
+  text: '您好！請點選下方主題，或直接問我腎臟相關問題。\n\n⚠️ 本系統為衛教輔助工具，非醫療診斷服務。所有資訊僅供參考，請遵循您的主治醫師建議。',
 };
 
 export function useChat(speak, onSendCallback) {
