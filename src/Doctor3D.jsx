@@ -1,5 +1,5 @@
 // src/Doctor3D.jsx - 3D 醫師模型（生動動畫版：手勢、眨眼、身體語言）
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Environment, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
@@ -19,34 +19,29 @@ function randRange(min, max) {
 }
 
 // ========== 手勢預設 ==========
-// 每個手勢定義各骨骼的目標旋轉（相對於 rest pose 的偏移）
 const GESTURE_PRESETS = [
   {
-    name: 'explain_right',  // 右手抬起解釋
+    name: 'explain_right',
     duration: [2.5, 4.0],
     bones: {
       RightArm: { x: -0.3, y: 0.2, z: -0.4 },
       RightForeArm: { x: -0.6, y: 0.1, z: 0 },
       RightHand: { x: -0.2, y: 0, z: 0.1 },
-      LeftArm: { x: 0, y: 0, z: 0 },
-      LeftForeArm: { x: 0, y: 0, z: 0 },
       Spine2: { x: 0, y: -0.04, z: 0 },
     }
   },
   {
-    name: 'explain_left',  // 左手抬起解釋
+    name: 'explain_left',
     duration: [2.5, 4.0],
     bones: {
       LeftArm: { x: -0.3, y: -0.2, z: 0.4 },
       LeftForeArm: { x: -0.6, y: -0.1, z: 0 },
       LeftHand: { x: -0.2, y: 0, z: -0.1 },
-      RightArm: { x: 0, y: 0, z: 0 },
-      RightForeArm: { x: 0, y: 0, z: 0 },
       Spine2: { x: 0, y: 0.04, z: 0 },
     }
   },
   {
-    name: 'both_hands_open',  // 雙手張開（強調）
+    name: 'both_hands_open',
     duration: [2.0, 3.5],
     bones: {
       RightArm: { x: -0.25, y: 0.3, z: -0.5 },
@@ -59,19 +54,17 @@ const GESTURE_PRESETS = [
     }
   },
   {
-    name: 'point_forward',  // 指向前方（強調重點）
+    name: 'point_forward',
     duration: [1.8, 3.0],
     bones: {
       RightArm: { x: -0.5, y: 0.1, z: -0.3 },
       RightForeArm: { x: -0.8, y: 0, z: 0 },
       RightHand: { x: -0.3, y: 0, z: 0 },
-      LeftArm: { x: 0, y: 0, z: 0 },
-      LeftForeArm: { x: 0, y: 0, z: 0 },
       Spine2: { x: 0.03, y: -0.03, z: 0 },
     }
   },
   {
-    name: 'hands_together',  // 雙手合攏（思考/解釋）
+    name: 'hands_together',
     duration: [2.0, 3.5],
     bones: {
       RightArm: { x: -0.2, y: -0.1, z: -0.3 },
@@ -84,23 +77,21 @@ const GESTURE_PRESETS = [
     }
   },
   {
-    name: 'gentle_wave',  // 輕微揮手（親切感）
+    name: 'gentle_wave',
     duration: [1.5, 2.5],
     bones: {
       RightArm: { x: -0.4, y: 0.4, z: -0.5 },
       RightForeArm: { x: -0.5, y: 0.3, z: 0 },
       RightHand: { x: 0, y: 0, z: 0.3 },
-      LeftArm: { x: 0, y: 0, z: 0 },
-      LeftForeArm: { x: 0, y: 0, z: 0 },
       Spine2: { x: 0, y: -0.02, z: -0.02 },
     }
   },
 ];
 
-// Idle 時的微動作預設
+// Idle 微動作
 const IDLE_MICRO_GESTURES = [
   {
-    name: 'chin_touch',  // 摸下巴思考
+    name: 'chin_touch',
     duration: [3.0, 5.0],
     bones: {
       RightArm: { x: -0.3, y: -0.2, z: -0.2 },
@@ -109,7 +100,7 @@ const IDLE_MICRO_GESTURES = [
     }
   },
   {
-    name: 'arms_crossed_light',  // 輕微交叉手臂
+    name: 'arms_crossed_light',
     duration: [4.0, 7.0],
     bones: {
       RightArm: { x: -0.1, y: -0.2, z: -0.2 },
@@ -119,12 +110,11 @@ const IDLE_MICRO_GESTURES = [
     }
   },
   {
-    name: 'weight_shift',  // 重心轉移
+    name: 'weight_shift',
     duration: [3.0, 5.0],
     bones: {
       Spine: { x: 0, y: 0.02, z: 0.01 },
       Spine1: { x: 0, y: -0.01, z: -0.01 },
-      Hips: { x: 0, y: 0.01, z: 0 },
     }
   },
 ];
@@ -134,11 +124,9 @@ function DoctorModel({ isSpeaking }) {
   const { scene } = useGLTF("/doctor.glb");
   const ref = useRef();
 
-  // Mesh refs (morph targets)
+  // Mesh refs
   const faceMeshRef = useRef(null);
   const teethMeshRef = useRef(null);
-  const eyeLeftMeshRef = useRef(null);
-  const eyeRightMeshRef = useRef(null);
 
   // 骨骼 refs
   const bonesRef = useRef({});
@@ -155,49 +143,39 @@ function DoctorModel({ isSpeaking }) {
     currentGesture: null,
     gestureProgress: 0,
     gestureDuration: 3.0,
-    gestureTransitionSpeed: 0.03,
-    nextGestureTimer: 0,
-    nextGestureInterval: randRange(2.0, 4.0),
+    gestureTransitionSpeed: 0.035,
+    nextGestureTimer: randRange(1.0, 2.0),
 
     // Idle 微動作
     idleGesture: null,
     idleGestureProgress: 0,
     idleGestureDuration: 4.0,
     idleGestureTransitionSpeed: 0.02,
-    nextIdleTimer: 0,
-    nextIdleInterval: randRange(3.0, 6.0),
+    nextIdleTimer: randRange(3.0, 6.0),
 
-    // 骨骼 rest pose 記錄
+    // 骨骼 rest pose
     restPose: {},
 
     // 說話狀態追蹤
     wasSpeaking: false,
     speakingStartTime: 0,
 
-    // 眉毛/表情
-    expressionTimer: 0,
-    expressionTarget: 0,
-
-    // 呼吸
-    breathPhase: 0,
-
     // 頭部初始旋轉
     headRestX: 0,
+
+    // 上一幀時間
+    lastTime: 0,
   });
 
-  // 初始化：遍歷場景找到所有需要的骨骼和 mesh
   useEffect(() => {
     const bones = {};
     scene.traverse((child) => {
       if (child.isMesh && child.morphTargetDictionary) {
         if (child.name === 'Wolf3D_Head') faceMeshRef.current = child;
         if (child.name === 'Wolf3D_Teeth') teethMeshRef.current = child;
-        if (child.name === 'EyeLeft') eyeLeftMeshRef.current = child;
-        if (child.name === 'EyeRight') eyeRightMeshRef.current = child;
       }
       if (child.isBone) {
         bones[child.name] = child;
-        // 記錄 rest pose
         if (!animState.current.restPose[child.name]) {
           animState.current.restPose[child.name] = {
             x: child.rotation.x,
@@ -209,7 +187,6 @@ function DoctorModel({ isSpeaking }) {
     });
     bonesRef.current = bones;
 
-    // 微調頭部初始角度（稍微抬頭看向鏡頭）
     if (bones.Head) {
       animState.current.headRestX = bones.Head.rotation.x - 0.1;
       bones.Head.rotation.x = animState.current.headRestX;
@@ -218,49 +195,42 @@ function DoctorModel({ isSpeaking }) {
 
   const BASE_Y = -5.3;
 
-  // ========== 主動畫循環 ==========
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    const dt = state.clock.getDelta() || 0.016;
     const anim = animState.current;
     const bones = bonesRef.current;
 
+    // 計算 delta time（安全版，避免除以零）
+    const dt = Math.min(t - anim.lastTime, 0.1); // 最大 100ms
+    anim.lastTime = t;
+    if (dt <= 0) return; // 跳過無效幀
+
     // --- 呼吸浮動 ---
-    anim.breathPhase += dt * 0.8;
     if (ref.current) {
-      ref.current.position.y = BASE_Y + Math.sin(anim.breathPhase) * 0.015;
+      ref.current.position.y = BASE_Y + Math.sin(t * 0.8) * 0.015;
     }
 
-    // --- 眨眼系統 ---
-    updateBlink(dt, anim);
-    applyBlink(anim);
+    // --- 眨眼 ---
+    updateBlink(dt, anim, bones);
 
-    // --- 呼吸動作（肩膀微微起伏）---
+    // --- 呼吸（肩膀）---
     applyBreathing(t, bones, anim);
 
     if (isSpeaking) {
-      // 記錄說話開始時間
       if (!anim.wasSpeaking) {
         anim.wasSpeaking = true;
         anim.speakingStartTime = t;
-        anim.nextGestureTimer = 0; // 立即觸發第一個手勢
+        anim.nextGestureTimer = 0.5;
+        anim.currentGesture = null;
       }
 
-      // --- 嘴巴動畫（更自然的說話節奏）---
-      applySpeakingMouth(t, anim);
-
-      // --- 頭部動畫（說話時更活潑）---
+      applySpeakingMouth(t);
       applySpeakingHead(t, state, bones, anim);
-
-      // --- 上半身動畫 ---
       applySpeakingTorso(t, bones, anim);
-
-      // --- 手勢系統 ---
-      updateGestureSystem(t, dt, anim, true);
-      applyGesture(anim, bones, true);
+      updateSpeakingGesture(dt, anim);
+      applyGestureBones(anim, bones, true);
 
     } else {
-      // 從說話切換到 idle
       if (anim.wasSpeaking) {
         anim.wasSpeaking = false;
         anim.currentGesture = null;
@@ -268,106 +238,81 @@ function DoctorModel({ isSpeaking }) {
         anim.nextIdleTimer = randRange(2.0, 4.0);
       }
 
-      // --- Idle 嘴巴（微笑）---
-      applyIdleMouth(anim);
-
-      // --- Idle 頭部（跟隨滑鼠）---
+      applyIdleMouth();
       applyIdleHead(state, bones, anim);
-
-      // --- Idle 上半身 ---
       applyIdleTorso(t, bones, anim);
-
-      // --- Idle 微動作系統 ---
-      updateGestureSystem(t, dt, anim, false);
-      applyGesture(anim, bones, false);
+      updateIdleGesture(dt, anim);
+      applyGestureBones(anim, bones, false);
     }
   });
 
   // ========== 眨眼 ==========
-  function updateBlink(dt, anim) {
+  function updateBlink(dt, anim, bones) {
     anim.blinkTimer += dt;
     if (!anim.isBlinking && anim.blinkTimer >= anim.blinkInterval) {
       anim.isBlinking = true;
       anim.blinkProgress = 0;
       anim.blinkTimer = 0;
-      // 偶爾連續眨兩次
       anim.blinkInterval = Math.random() < 0.2
         ? randRange(0.3, 0.5)
         : randRange(2.5, 5.5);
     }
     if (anim.isBlinking) {
-      anim.blinkProgress += dt * 8; // 眨眼速度
+      anim.blinkProgress += dt * 8;
       if (anim.blinkProgress >= 1.0) {
         anim.isBlinking = false;
         anim.blinkProgress = 0;
       }
     }
-  }
 
-  function applyBlink(anim) {
-    // 使用眼球骨骼的 scale 模擬眨眼（因為 morph target 有限）
-    const bones = bonesRef.current;
+    // 用眼球骨骼 scaleY 模擬眨眼
     let blinkValue = 0;
     if (anim.isBlinking) {
-      // 快速閉合再張開的曲線
-      blinkValue = Math.sin(anim.blinkProgress * Math.PI);
+      blinkValue = Math.sin(clamp(anim.blinkProgress, 0, 1) * Math.PI);
     }
-
-    // 如果有眼睛 mesh 的 morph target 可用就用，否則用骨骼 scale
     if (bones.LeftEye) {
-      bones.LeftEye.scale.y = lerp(bones.LeftEye.scale.y, 1 - blinkValue * 0.8, 0.3);
+      bones.LeftEye.scale.y = lerp(bones.LeftEye.scale.y, 1 - blinkValue * 0.7, 0.3);
     }
     if (bones.RightEye) {
-      bones.RightEye.scale.y = lerp(bones.RightEye.scale.y, 1 - blinkValue * 0.8, 0.3);
+      bones.RightEye.scale.y = lerp(bones.RightEye.scale.y, 1 - blinkValue * 0.7, 0.3);
     }
   }
 
   // ========== 呼吸 ==========
   function applyBreathing(t, bones, anim) {
-    const breathCycle = Math.sin(t * 0.7) * 0.5 + 0.5; // 0~1
+    const breathCycle = Math.sin(t * 0.7) * 0.5 + 0.5;
     if (bones.Spine1) {
       const rest = anim.restPose.Spine1 || { x: 0, y: 0, z: 0 };
-      bones.Spine1.rotation.x = lerp(
-        bones.Spine1.rotation.x,
-        rest.x + breathCycle * 0.01,
-        0.05
-      );
+      bones.Spine1.rotation.x = lerp(bones.Spine1.rotation.x, rest.x + breathCycle * 0.008, 0.04);
     }
-    // 肩膀微微隨呼吸起伏
     if (bones.LeftShoulder) {
-      bones.LeftShoulder.rotation.z = lerp(
-        bones.LeftShoulder.rotation.z,
-        (anim.restPose.LeftShoulder?.z || 0) + breathCycle * 0.008,
-        0.03
-      );
+      const rest = anim.restPose.LeftShoulder || { z: 0 };
+      bones.LeftShoulder.rotation.z = lerp(bones.LeftShoulder.rotation.z, (rest.z || 0) + breathCycle * 0.006, 0.03);
     }
     if (bones.RightShoulder) {
-      bones.RightShoulder.rotation.z = lerp(
-        bones.RightShoulder.rotation.z,
-        (anim.restPose.RightShoulder?.z || 0) - breathCycle * 0.008,
-        0.03
-      );
+      const rest = anim.restPose.RightShoulder || { z: 0 };
+      bones.RightShoulder.rotation.z = lerp(bones.RightShoulder.rotation.z, (rest.z || 0) - breathCycle * 0.006, 0.03);
     }
   }
 
   // ========== 說話嘴巴 ==========
-  function applySpeakingMouth(t, anim) {
-    // 更自然的說話節奏：混合多個頻率
+  function applySpeakingMouth(t) {
     const base = Math.abs(Math.sin(t * 10));
     const variation = Math.abs(Math.sin(t * 7.3)) * 0.3;
-    const pause = Math.sin(t * 1.5) > 0.7 ? 0.3 : 1.0; // 偶爾停頓
-    const talkValue = clamp((base * 0.5 + variation) * pause + Math.random() * 0.05, 0, 0.7);
-    const smileValue = 0.25 + Math.sin(t * 0.5) * 0.15;
+    const pause = Math.sin(t * 1.5) > 0.7 ? 0.3 : 1.0;
+    const talkValue = clamp((base * 0.5 + variation) * pause + Math.random() * 0.05, 0, 0.65);
+    const smileValue = 0.25 + Math.sin(t * 0.5) * 0.12;
 
     [faceMeshRef, teethMeshRef].forEach(meshRef => {
       if (!meshRef.current) return;
       const dict = meshRef.current.morphTargetDictionary;
       const inf = meshRef.current.morphTargetInfluences;
+      if (!dict || !inf) return;
       if (dict['mouthOpen'] !== undefined) {
-        inf[dict['mouthOpen']] = lerp(inf[dict['mouthOpen']], talkValue, 0.25);
+        inf[dict['mouthOpen']] = lerp(inf[dict['mouthOpen']], talkValue, 0.2);
       }
       if (dict['mouthSmile'] !== undefined) {
-        inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], smileValue, 0.08);
+        inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], smileValue, 0.06);
       }
     });
   }
@@ -375,25 +320,21 @@ function DoctorModel({ isSpeaking }) {
   // ========== 說話頭部 ==========
   function applySpeakingHead(t, state, bones, anim) {
     if (!bones.Head) return;
-    const speakTime = t - anim.speakingStartTime;
 
-    // 頭部動作更豐富：結合多個頻率的擺動
     const nodX = smoothSin(t, 0.4, 0) * 0.04 + smoothSin(t, 1.2, 1) * 0.02;
-    const turnY = smoothSin(t, 0.3, 2) * 0.1 + smoothSin(t, 0.8, 0.5) * 0.04;
-    const tiltZ = smoothSin(t, 0.25, 1.5) * 0.04;
+    const turnY = smoothSin(t, 0.3, 2) * 0.08 + smoothSin(t, 0.8, 0.5) * 0.03;
+    const tiltZ = smoothSin(t, 0.25, 1.5) * 0.03;
 
-    // 滑鼠追蹤（說話時減弱）
-    const pointerX = state.pointer.x * 0.1;
-    const pointerY = state.pointer.y * 0.05;
+    const pointerX = state.pointer.x * 0.08;
+    const pointerY = state.pointer.y * 0.04;
 
-    bones.Head.rotation.y = lerp(bones.Head.rotation.y, turnY + pointerX, 0.06);
-    bones.Head.rotation.x = lerp(bones.Head.rotation.x, anim.headRestX + nodX - pointerY, 0.06);
-    bones.Head.rotation.z = lerp(bones.Head.rotation.z, tiltZ, 0.05);
+    bones.Head.rotation.y = lerp(bones.Head.rotation.y, turnY + pointerX, 0.05);
+    bones.Head.rotation.x = lerp(bones.Head.rotation.x, anim.headRestX + nodX - pointerY, 0.05);
+    bones.Head.rotation.z = lerp(bones.Head.rotation.z, tiltZ, 0.04);
 
-    // 頸部也跟著動（更自然）
     if (bones.Neck) {
-      bones.Neck.rotation.y = lerp(bones.Neck.rotation.y, turnY * 0.3, 0.04);
-      bones.Neck.rotation.x = lerp(bones.Neck.rotation.x, nodX * 0.2, 0.04);
+      bones.Neck.rotation.y = lerp(bones.Neck.rotation.y, turnY * 0.25, 0.03);
+      bones.Neck.rotation.x = lerp(bones.Neck.rotation.x, nodX * 0.15, 0.03);
     }
   }
 
@@ -402,93 +343,88 @@ function DoctorModel({ isSpeaking }) {
     if (!bones.Spine2) return;
     const rest = anim.restPose.Spine2 || { x: 0, y: 0, z: 0 };
 
-    // 上半身隨說話微微擺動
-    const swayY = smoothSin(t, 0.25, 0) * 0.04;
-    const leanX = smoothSin(t, 0.15, 1) * 0.02;
+    const swayY = smoothSin(t, 0.25, 0) * 0.03;
+    const leanX = smoothSin(t, 0.15, 1) * 0.015;
 
-    bones.Spine2.rotation.y = lerp(bones.Spine2.rotation.y, rest.y + swayY, 0.04);
-    bones.Spine2.rotation.x = lerp(bones.Spine2.rotation.x, rest.x + leanX, 0.04);
-    bones.Spine2.rotation.z = lerp(bones.Spine2.rotation.z, rest.z + smoothSin(t, 0.2, 2) * 0.02, 0.04);
-
-    // Spine 也微微動
-    if (bones.Spine) {
-      const restSpine = anim.restPose.Spine || { x: 0, y: 0, z: 0 };
-      bones.Spine.rotation.y = lerp(bones.Spine.rotation.y, restSpine.y + swayY * 0.3, 0.03);
-    }
+    bones.Spine2.rotation.y = lerp(bones.Spine2.rotation.y, rest.y + swayY, 0.03);
+    bones.Spine2.rotation.x = lerp(bones.Spine2.rotation.x, rest.x + leanX, 0.03);
+    bones.Spine2.rotation.z = lerp(bones.Spine2.rotation.z, rest.z + smoothSin(t, 0.2, 2) * 0.015, 0.03);
   }
 
-  // ========== 手勢系統 ==========
-  function updateGestureSystem(t, dt, anim, isSpeakingMode) {
-    const presets = isSpeakingMode ? GESTURE_PRESETS : IDLE_MICRO_GESTURES;
-    const timerKey = isSpeakingMode ? 'nextGestureTimer' : 'nextIdleTimer';
-    const intervalKey = isSpeakingMode ? 'nextGestureInterval' : 'nextIdleInterval';
-    const gestureKey = isSpeakingMode ? 'currentGesture' : 'idleGesture';
-    const progressKey = isSpeakingMode ? 'gestureProgress' : 'idleGestureProgress';
-    const durationKey = isSpeakingMode ? 'gestureDuration' : 'idleGestureDuration';
-    const speedKey = isSpeakingMode ? 'gestureTransitionSpeed' : 'idleGestureTransitionSpeed';
-
-    // 計時器
-    anim[timerKey] -= dt;
-
-    if (anim[timerKey] <= 0 && !anim[gestureKey]) {
-      // 選擇新手勢
-      const gesture = presets[Math.floor(Math.random() * presets.length)];
-      anim[gestureKey] = gesture;
-      anim[progressKey] = 0;
-      anim[durationKey] = randRange(gesture.duration[0], gesture.duration[1]);
-      anim[speedKey] = isSpeakingMode ? randRange(0.025, 0.045) : randRange(0.015, 0.03);
-    }
-
-    if (anim[gestureKey]) {
-      anim[progressKey] += dt;
-      if (anim[progressKey] >= anim[durationKey]) {
-        // 手勢結束
-        anim[gestureKey] = null;
-        anim[progressKey] = 0;
-        anim[timerKey] = isSpeakingMode
-          ? randRange(0.5, 2.0)  // 說話時手勢切換快
-          : randRange(3.0, 7.0); // idle 時較慢
+  // ========== 說話手勢更新 ==========
+  function updateSpeakingGesture(dt, anim) {
+    if (anim.currentGesture) {
+      anim.gestureProgress += dt;
+      if (anim.gestureProgress >= anim.gestureDuration) {
+        anim.currentGesture = null;
+        anim.gestureProgress = 0;
+        anim.nextGestureTimer = randRange(0.5, 1.8);
+      }
+    } else {
+      anim.nextGestureTimer -= dt;
+      if (anim.nextGestureTimer <= 0) {
+        const gesture = GESTURE_PRESETS[Math.floor(Math.random() * GESTURE_PRESETS.length)];
+        anim.currentGesture = gesture;
+        anim.gestureProgress = 0;
+        anim.gestureDuration = randRange(gesture.duration[0], gesture.duration[1]);
+        anim.gestureTransitionSpeed = randRange(0.025, 0.04);
       }
     }
   }
 
-  function applyGesture(anim, bones, isSpeakingMode) {
-    const gestureKey = isSpeakingMode ? 'currentGesture' : 'idleGesture';
-    const progressKey = isSpeakingMode ? 'gestureProgress' : 'idleGestureProgress';
-    const durationKey = isSpeakingMode ? 'gestureDuration' : 'idleGestureDuration';
-    const speedKey = isSpeakingMode ? 'gestureTransitionSpeed' : 'idleGestureTransitionSpeed';
+  // ========== Idle 微動作更新 ==========
+  function updateIdleGesture(dt, anim) {
+    if (anim.idleGesture) {
+      anim.idleGestureProgress += dt;
+      if (anim.idleGestureProgress >= anim.idleGestureDuration) {
+        anim.idleGesture = null;
+        anim.idleGestureProgress = 0;
+        anim.nextIdleTimer = randRange(4.0, 8.0);
+      }
+    } else {
+      anim.nextIdleTimer -= dt;
+      if (anim.nextIdleTimer <= 0) {
+        const gesture = IDLE_MICRO_GESTURES[Math.floor(Math.random() * IDLE_MICRO_GESTURES.length)];
+        anim.idleGesture = gesture;
+        anim.idleGestureProgress = 0;
+        anim.idleGestureDuration = randRange(gesture.duration[0], gesture.duration[1]);
+        anim.idleGestureTransitionSpeed = randRange(0.015, 0.025);
+      }
+    }
+  }
 
-    const gesture = anim[gestureKey];
-    const transitionSpeed = anim[speedKey];
+  // ========== 套用手勢到骨骼 ==========
+  function applyGestureBones(anim, bones, isSpeakingMode) {
+    const gesture = isSpeakingMode ? anim.currentGesture : anim.idleGesture;
+    const progress = isSpeakingMode ? anim.gestureProgress : anim.idleGestureProgress;
+    const duration = isSpeakingMode ? anim.gestureDuration : anim.idleGestureDuration;
+    const speed = isSpeakingMode ? anim.gestureTransitionSpeed : anim.idleGestureTransitionSpeed;
 
     // 計算手勢強度（淡入淡出）
     let intensity = 0;
-    if (gesture) {
-      const progress = anim[progressKey];
-      const duration = anim[durationKey];
-      const fadeIn = 0.6;  // 淡入時間
-      const fadeOut = 0.8; // 淡出時間
+    if (gesture && duration > 0) {
+      const fadeIn = Math.min(0.6, duration * 0.2);
+      const fadeOut = Math.min(0.8, duration * 0.25);
 
       if (progress < fadeIn) {
-        intensity = progress / fadeIn;
+        intensity = fadeIn > 0 ? progress / fadeIn : 1;
       } else if (progress > duration - fadeOut) {
-        intensity = (duration - progress) / fadeOut;
+        intensity = fadeOut > 0 ? (duration - progress) / fadeOut : 0;
       } else {
         intensity = 1.0;
       }
       intensity = clamp(intensity, 0, 1);
-      // 使用 ease-in-out 曲線
+      // ease-in-out
       intensity = intensity * intensity * (3 - 2 * intensity);
     }
 
-    // 需要控制的手臂骨骼列表
-    const armBones = [
+    // 需要控制的骨骼
+    const controlledBones = [
       'RightArm', 'RightForeArm', 'RightHand',
       'LeftArm', 'LeftForeArm', 'LeftHand',
-      'Spine2', 'Spine1', 'Spine', 'Hips'
     ];
 
-    armBones.forEach(boneName => {
+    controlledBones.forEach(boneName => {
       const bone = bones[boneName];
       if (!bone) return;
       const rest = anim.restPose[boneName] || { x: 0, y: 0, z: 0 };
@@ -497,71 +433,54 @@ function DoctorModel({ isSpeaking }) {
       let targetY = rest.y;
       let targetZ = rest.z;
 
-      if (gesture && gesture.bones[boneName]) {
+      if (gesture && gesture.bones && gesture.bones[boneName] && intensity > 0) {
         const g = gesture.bones[boneName];
         targetX = rest.x + (g.x || 0) * intensity;
         targetY = rest.y + (g.y || 0) * intensity;
         targetZ = rest.z + (g.z || 0) * intensity;
 
-        // 加入微小的動態抖動讓手勢更自然
-        if (intensity > 0.3 && isSpeakingMode) {
-          const t = anim[progressKey];
-          targetX += smoothSin(t * 3, 2.5, boneName.length) * 0.015 * intensity;
-          targetY += smoothSin(t * 3, 1.8, boneName.length * 2) * 0.01 * intensity;
+        // 微小動態抖動（說話時）
+        if (isSpeakingMode && intensity > 0.3) {
+          targetX += smoothSin(progress * 3, 2.0, boneName.length) * 0.01 * intensity;
+          targetY += smoothSin(progress * 3, 1.5, boneName.length * 2) * 0.008 * intensity;
         }
       }
 
-      // 平滑過渡
-      const speed = gesture ? transitionSpeed : 0.025;
-      bone.rotation.x = lerp(bone.rotation.x, targetX, speed);
-      bone.rotation.y = lerp(bone.rotation.y, targetY, speed);
-      bone.rotation.z = lerp(bone.rotation.z, targetZ, speed);
+      bone.rotation.x = lerp(bone.rotation.x, targetX, speed || 0.03);
+      bone.rotation.y = lerp(bone.rotation.y, targetY, speed || 0.03);
+      bone.rotation.z = lerp(bone.rotation.z, targetZ, speed || 0.03);
     });
 
-    // 手指動畫（說話時手指微微張開/收攏）
-    if (isSpeakingMode && gesture && intensity > 0.2) {
-      applyFingerAnimation(anim, bones, intensity);
-    }
-  }
-
-  // ========== 手指動畫 ==========
-  function applyFingerAnimation(anim, bones, intensity) {
-    const t = anim.gestureProgress;
-    const fingerBones = [
-      'RightHandIndex1', 'RightHandIndex2', 'RightHandIndex3',
-      'RightHandMiddle1', 'RightHandMiddle2', 'RightHandMiddle3',
-      'RightHandRing1', 'RightHandRing2', 'RightHandRing3',
-      'RightHandPinky1', 'RightHandPinky2', 'RightHandPinky3',
-      'RightHandThumb1', 'RightHandThumb2', 'RightHandThumb3',
-      'LeftHandIndex1', 'LeftHandIndex2', 'LeftHandIndex3',
-      'LeftHandMiddle1', 'LeftHandMiddle2', 'LeftHandMiddle3',
-      'LeftHandRing1', 'LeftHandRing2', 'LeftHandRing3',
-      'LeftHandPinky1', 'LeftHandPinky2', 'LeftHandPinky3',
-      'LeftHandThumb1', 'LeftHandThumb2', 'LeftHandThumb3',
-    ];
-
-    fingerBones.forEach((boneName, i) => {
+    // Spine 骨骼（只在手勢有定義時才動）
+    ['Spine2', 'Spine1', 'Spine'].forEach(boneName => {
       const bone = bones[boneName];
       if (!bone) return;
-      const rest = anim.restPose[boneName] || { x: 0, y: 0, z: 0 };
-
-      // 手指微微彎曲的自然動作
-      const curl = smoothSin(t * 2, 1.5, i * 0.5) * 0.08 * intensity;
-      bone.rotation.x = lerp(bone.rotation.x, rest.x + curl, 0.03);
+      // 如果手勢有定義這個骨骼就套用，否則不干預（讓其他函數控制）
+      if (gesture && gesture.bones && gesture.bones[boneName] && intensity > 0) {
+        const rest = anim.restPose[boneName] || { x: 0, y: 0, z: 0 };
+        const g = gesture.bones[boneName];
+        const targetX = rest.x + (g.x || 0) * intensity;
+        const targetY = rest.y + (g.y || 0) * intensity;
+        const targetZ = rest.z + (g.z || 0) * intensity;
+        bone.rotation.x = lerp(bone.rotation.x, targetX, speed || 0.03);
+        bone.rotation.y = lerp(bone.rotation.y, targetY, speed || 0.03);
+        bone.rotation.z = lerp(bone.rotation.z, targetZ, speed || 0.03);
+      }
     });
   }
 
   // ========== Idle 嘴巴 ==========
-  function applyIdleMouth(anim) {
+  function applyIdleMouth() {
     [faceMeshRef, teethMeshRef].forEach(meshRef => {
       if (!meshRef.current) return;
       const dict = meshRef.current.morphTargetDictionary;
       const inf = meshRef.current.morphTargetInfluences;
+      if (!dict || !inf) return;
       if (dict['mouthOpen'] !== undefined) {
-        inf[dict['mouthOpen']] = lerp(inf[dict['mouthOpen']], 0, 0.12);
+        inf[dict['mouthOpen']] = lerp(inf[dict['mouthOpen']], 0, 0.1);
       }
       if (dict['mouthSmile'] !== undefined) {
-        inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], 0.15, 0.05);
+        inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], 0.12, 0.04);
       }
     });
   }
@@ -570,17 +489,15 @@ function DoctorModel({ isSpeaking }) {
   function applyIdleHead(state, bones, anim) {
     if (!bones.Head) return;
 
-    // 跟隨滑鼠/手指（像在看著你）
-    const targetY = state.pointer.x * 0.25;
-    const targetX = anim.headRestX - state.pointer.y * 0.12;
+    const targetY = state.pointer.x * 0.22;
+    const targetX = anim.headRestX - state.pointer.y * 0.1;
 
-    bones.Head.rotation.y = lerp(bones.Head.rotation.y, targetY, 0.04);
-    bones.Head.rotation.x = lerp(bones.Head.rotation.x, targetX, 0.04);
-    bones.Head.rotation.z = lerp(bones.Head.rotation.z, 0, 0.05);
+    bones.Head.rotation.y = lerp(bones.Head.rotation.y, targetY, 0.035);
+    bones.Head.rotation.x = lerp(bones.Head.rotation.x, targetX, 0.035);
+    bones.Head.rotation.z = lerp(bones.Head.rotation.z, 0, 0.04);
 
-    // 頸部輕微跟隨
     if (bones.Neck) {
-      bones.Neck.rotation.y = lerp(bones.Neck.rotation.y, targetY * 0.2, 0.03);
+      bones.Neck.rotation.y = lerp(bones.Neck.rotation.y, targetY * 0.15, 0.025);
     }
   }
 
@@ -588,12 +505,10 @@ function DoctorModel({ isSpeaking }) {
   function applyIdleTorso(t, bones, anim) {
     if (!bones.Spine2) return;
     const rest = anim.restPose.Spine2 || { x: 0, y: 0, z: 0 };
-
-    // 非常輕微的自然擺動
-    const idleSway = smoothSin(t, 0.15, 0) * 0.01;
-    bones.Spine2.rotation.y = lerp(bones.Spine2.rotation.y, rest.y + idleSway, 0.03);
-    bones.Spine2.rotation.x = lerp(bones.Spine2.rotation.x, rest.x, 0.03);
-    bones.Spine2.rotation.z = lerp(bones.Spine2.rotation.z, rest.z, 0.03);
+    const idleSway = smoothSin(t, 0.12, 0) * 0.008;
+    bones.Spine2.rotation.y = lerp(bones.Spine2.rotation.y, rest.y + idleSway, 0.02);
+    bones.Spine2.rotation.x = lerp(bones.Spine2.rotation.x, rest.x, 0.02);
+    bones.Spine2.rotation.z = lerp(bones.Spine2.rotation.z, rest.z, 0.02);
   }
 
   return (
@@ -632,7 +547,11 @@ export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false,
       }}
       title={isSpeaking ? '點擊停止說話' : ''}
     >
-      <Canvas camera={cameraSettings}>
+      <Canvas
+        camera={cameraSettings}
+        gl={{ antialias: true, powerPreference: 'default' }}
+        dpr={[1, 1.5]}
+      >
         <ambientLight intensity={2} />
         <Environment preset="city" />
         <DoctorModel isSpeaking={isSpeaking} />
