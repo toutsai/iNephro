@@ -1,6 +1,6 @@
 // src/Doctor3D.jsx - 3D 醫師模型（生動動畫版：手勢、眨眼、身體語言）
-import React, { useRef, useEffect } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Environment, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -8,12 +8,10 @@ import * as THREE from "three";
 const lerp = THREE.MathUtils.lerp;
 const clamp = THREE.MathUtils.clamp;
 
-// 平滑 sin 波 (用於自然動作)
 function smoothSin(t, freq, phase = 0) {
   return Math.sin(t * freq + phase);
 }
 
-// 隨機範圍
 function randRange(min, max) {
   return min + Math.random() * (max - min);
 }
@@ -27,7 +25,6 @@ const GESTURE_PRESETS = [
       RightArm: { x: -0.3, y: 0.2, z: -0.4 },
       RightForeArm: { x: -0.6, y: 0.1, z: 0 },
       RightHand: { x: -0.2, y: 0, z: 0.1 },
-      Spine2: { x: 0, y: -0.04, z: 0 },
     }
   },
   {
@@ -37,7 +34,6 @@ const GESTURE_PRESETS = [
       LeftArm: { x: -0.3, y: -0.2, z: 0.4 },
       LeftForeArm: { x: -0.6, y: -0.1, z: 0 },
       LeftHand: { x: -0.2, y: 0, z: -0.1 },
-      Spine2: { x: 0, y: 0.04, z: 0 },
     }
   },
   {
@@ -46,11 +42,8 @@ const GESTURE_PRESETS = [
     bones: {
       RightArm: { x: -0.25, y: 0.3, z: -0.5 },
       RightForeArm: { x: -0.4, y: 0.2, z: 0 },
-      RightHand: { x: -0.1, y: 0, z: 0.2 },
       LeftArm: { x: -0.25, y: -0.3, z: 0.5 },
       LeftForeArm: { x: -0.4, y: -0.2, z: 0 },
-      LeftHand: { x: -0.1, y: 0, z: -0.2 },
-      Spine2: { x: 0.02, y: 0, z: 0 },
     }
   },
   {
@@ -60,7 +53,6 @@ const GESTURE_PRESETS = [
       RightArm: { x: -0.5, y: 0.1, z: -0.3 },
       RightForeArm: { x: -0.8, y: 0, z: 0 },
       RightHand: { x: -0.3, y: 0, z: 0 },
-      Spine2: { x: 0.03, y: -0.03, z: 0 },
     }
   },
   {
@@ -69,11 +61,8 @@ const GESTURE_PRESETS = [
     bones: {
       RightArm: { x: -0.2, y: -0.1, z: -0.3 },
       RightForeArm: { x: -0.9, y: -0.2, z: 0.2 },
-      RightHand: { x: -0.1, y: 0.2, z: 0.3 },
       LeftArm: { x: -0.2, y: 0.1, z: 0.3 },
       LeftForeArm: { x: -0.9, y: 0.2, z: -0.2 },
-      LeftHand: { x: -0.1, y: -0.2, z: -0.3 },
-      Spine2: { x: 0.02, y: 0, z: 0 },
     }
   },
   {
@@ -83,7 +72,6 @@ const GESTURE_PRESETS = [
       RightArm: { x: -0.4, y: 0.4, z: -0.5 },
       RightForeArm: { x: -0.5, y: 0.3, z: 0 },
       RightHand: { x: 0, y: 0, z: 0.3 },
-      Spine2: { x: 0, y: -0.02, z: -0.02 },
     }
   },
 ];
@@ -113,8 +101,7 @@ const IDLE_MICRO_GESTURES = [
     name: 'weight_shift',
     duration: [3.0, 5.0],
     bones: {
-      Spine: { x: 0, y: 0.02, z: 0.01 },
-      Spine1: { x: 0, y: -0.01, z: -0.01 },
+      Spine: { x: 0, y: 0.015, z: 0.008 },
     }
   },
 ];
@@ -133,38 +120,26 @@ function DoctorModel({ isSpeaking }) {
 
   // 動畫狀態
   const animState = useRef({
-    // 眨眼
     blinkTimer: 0,
     blinkInterval: randRange(2.5, 5.0),
     isBlinking: false,
     blinkProgress: 0,
 
-    // 手勢系統
     currentGesture: null,
     gestureProgress: 0,
     gestureDuration: 3.0,
-    gestureTransitionSpeed: 0.035,
     nextGestureTimer: randRange(1.0, 2.0),
 
-    // Idle 微動作
     idleGesture: null,
     idleGestureProgress: 0,
     idleGestureDuration: 4.0,
-    idleGestureTransitionSpeed: 0.02,
     nextIdleTimer: randRange(3.0, 6.0),
 
-    // 骨骼 rest pose
     restPose: {},
-
-    // 說話狀態追蹤
     wasSpeaking: false,
-    speakingStartTime: 0,
-
-    // 頭部初始旋轉
     headRestX: 0,
-
-    // 上一幀時間
-    lastTime: 0,
+    lastTime: -1,
+    frameCount: 0,
   });
 
   useEffect(() => {
@@ -176,13 +151,11 @@ function DoctorModel({ isSpeaking }) {
       }
       if (child.isBone) {
         bones[child.name] = child;
-        if (!animState.current.restPose[child.name]) {
-          animState.current.restPose[child.name] = {
-            x: child.rotation.x,
-            y: child.rotation.y,
-            z: child.rotation.z,
-          };
-        }
+        animState.current.restPose[child.name] = {
+          x: child.rotation.x,
+          y: child.rotation.y,
+          z: child.rotation.z,
+        };
       }
     });
     bonesRef.current = bones;
@@ -200,26 +173,35 @@ function DoctorModel({ isSpeaking }) {
     const anim = animState.current;
     const bones = bonesRef.current;
 
-    // 計算 delta time（安全版，避免除以零）
-    const dt = Math.min(t - anim.lastTime, 0.1); // 最大 100ms
+    // 安全 delta time 計算
+    if (anim.lastTime < 0) {
+      anim.lastTime = t;
+      return;
+    }
+    const rawDt = t - anim.lastTime;
     anim.lastTime = t;
-    if (dt <= 0) return; // 跳過無效幀
+    const dt = clamp(rawDt, 0.001, 0.05); // 限制在 1ms ~ 50ms
 
-    // --- 呼吸浮動 ---
+    // 每 3 幀才做一次完整動畫更新（降低 GPU 負擔）
+    anim.frameCount++;
+    const doFullUpdate = (anim.frameCount % 2 === 0);
+
+    // --- 呼吸浮動（每幀都做，很輕量）---
     if (ref.current) {
       ref.current.position.y = BASE_Y + Math.sin(t * 0.8) * 0.015;
     }
 
-    // --- 眨眼 ---
+    // --- 眨眼（每幀都做）---
     updateBlink(dt, anim, bones);
 
-    // --- 呼吸（肩膀）---
+    if (!doFullUpdate) return; // 跳過部分幀的重計算
+
+    // --- 呼吸肩膀 ---
     applyBreathing(t, bones, anim);
 
     if (isSpeaking) {
       if (!anim.wasSpeaking) {
         anim.wasSpeaking = true;
-        anim.speakingStartTime = t;
         anim.nextGestureTimer = 0.5;
         anim.currentGesture = null;
       }
@@ -227,7 +209,7 @@ function DoctorModel({ isSpeaking }) {
       applySpeakingMouth(t);
       applySpeakingHead(t, state, bones, anim);
       applySpeakingTorso(t, bones, anim);
-      updateSpeakingGesture(dt, anim);
+      updateSpeakingGesture(dt * 2, anim); // 乘以 2 補償跳幀
       applyGestureBones(anim, bones, true);
 
     } else {
@@ -241,7 +223,7 @@ function DoctorModel({ isSpeaking }) {
       applyIdleMouth();
       applyIdleHead(state, bones, anim);
       applyIdleTorso(t, bones, anim);
-      updateIdleGesture(dt, anim);
+      updateIdleGesture(dt * 2, anim);
       applyGestureBones(anim, bones, false);
     }
   });
@@ -265,11 +247,10 @@ function DoctorModel({ isSpeaking }) {
       }
     }
 
-    // 用眼球骨骼 scaleY 模擬眨眼
-    let blinkValue = 0;
-    if (anim.isBlinking) {
-      blinkValue = Math.sin(clamp(anim.blinkProgress, 0, 1) * Math.PI);
-    }
+    const blinkValue = anim.isBlinking
+      ? Math.sin(clamp(anim.blinkProgress, 0, 1) * Math.PI)
+      : 0;
+
     if (bones.LeftEye) {
       bones.LeftEye.scale.y = lerp(bones.LeftEye.scale.y, 1 - blinkValue * 0.7, 0.3);
     }
@@ -282,16 +263,8 @@ function DoctorModel({ isSpeaking }) {
   function applyBreathing(t, bones, anim) {
     const breathCycle = Math.sin(t * 0.7) * 0.5 + 0.5;
     if (bones.Spine1) {
-      const rest = anim.restPose.Spine1 || { x: 0, y: 0, z: 0 };
-      bones.Spine1.rotation.x = lerp(bones.Spine1.rotation.x, rest.x + breathCycle * 0.008, 0.04);
-    }
-    if (bones.LeftShoulder) {
-      const rest = anim.restPose.LeftShoulder || { z: 0 };
-      bones.LeftShoulder.rotation.z = lerp(bones.LeftShoulder.rotation.z, (rest.z || 0) + breathCycle * 0.006, 0.03);
-    }
-    if (bones.RightShoulder) {
-      const rest = anim.restPose.RightShoulder || { z: 0 };
-      bones.RightShoulder.rotation.z = lerp(bones.RightShoulder.rotation.z, (rest.z || 0) - breathCycle * 0.006, 0.03);
+      const rest = anim.restPose.Spine1 || { x: 0 };
+      bones.Spine1.rotation.x = lerp(bones.Spine1.rotation.x, rest.x + breathCycle * 0.006, 0.03);
     }
   }
 
@@ -300,20 +273,15 @@ function DoctorModel({ isSpeaking }) {
     const base = Math.abs(Math.sin(t * 10));
     const variation = Math.abs(Math.sin(t * 7.3)) * 0.3;
     const pause = Math.sin(t * 1.5) > 0.7 ? 0.3 : 1.0;
-    const talkValue = clamp((base * 0.5 + variation) * pause + Math.random() * 0.05, 0, 0.65);
-    const smileValue = 0.25 + Math.sin(t * 0.5) * 0.12;
+    const talkValue = clamp((base * 0.5 + variation) * pause, 0, 0.6);
+    const smileValue = 0.25 + Math.sin(t * 0.5) * 0.1;
 
     [faceMeshRef, teethMeshRef].forEach(meshRef => {
-      if (!meshRef.current) return;
+      if (!meshRef.current?.morphTargetDictionary || !meshRef.current?.morphTargetInfluences) return;
       const dict = meshRef.current.morphTargetDictionary;
       const inf = meshRef.current.morphTargetInfluences;
-      if (!dict || !inf) return;
-      if (dict['mouthOpen'] !== undefined) {
-        inf[dict['mouthOpen']] = lerp(inf[dict['mouthOpen']], talkValue, 0.2);
-      }
-      if (dict['mouthSmile'] !== undefined) {
-        inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], smileValue, 0.06);
-      }
+      if (dict['mouthOpen'] !== undefined) inf[dict['mouthOpen']] = lerp(inf[dict['mouthOpen']], talkValue, 0.2);
+      if (dict['mouthSmile'] !== undefined) inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], smileValue, 0.06);
     });
   }
 
@@ -321,20 +289,19 @@ function DoctorModel({ isSpeaking }) {
   function applySpeakingHead(t, state, bones, anim) {
     if (!bones.Head) return;
 
-    const nodX = smoothSin(t, 0.4, 0) * 0.04 + smoothSin(t, 1.2, 1) * 0.02;
-    const turnY = smoothSin(t, 0.3, 2) * 0.08 + smoothSin(t, 0.8, 0.5) * 0.03;
-    const tiltZ = smoothSin(t, 0.25, 1.5) * 0.03;
+    const nodX = smoothSin(t, 0.4, 0) * 0.035 + smoothSin(t, 1.2, 1) * 0.015;
+    const turnY = smoothSin(t, 0.3, 2) * 0.07 + smoothSin(t, 0.8, 0.5) * 0.025;
+    const tiltZ = smoothSin(t, 0.25, 1.5) * 0.025;
 
-    const pointerX = state.pointer.x * 0.08;
-    const pointerY = state.pointer.y * 0.04;
+    const pointerX = (state.pointer?.x || 0) * 0.06;
+    const pointerY = (state.pointer?.y || 0) * 0.03;
 
-    bones.Head.rotation.y = lerp(bones.Head.rotation.y, turnY + pointerX, 0.05);
-    bones.Head.rotation.x = lerp(bones.Head.rotation.x, anim.headRestX + nodX - pointerY, 0.05);
-    bones.Head.rotation.z = lerp(bones.Head.rotation.z, tiltZ, 0.04);
+    bones.Head.rotation.y = lerp(bones.Head.rotation.y, turnY + pointerX, 0.04);
+    bones.Head.rotation.x = lerp(bones.Head.rotation.x, anim.headRestX + nodX - pointerY, 0.04);
+    bones.Head.rotation.z = lerp(bones.Head.rotation.z, tiltZ, 0.03);
 
     if (bones.Neck) {
-      bones.Neck.rotation.y = lerp(bones.Neck.rotation.y, turnY * 0.25, 0.03);
-      bones.Neck.rotation.x = lerp(bones.Neck.rotation.x, nodX * 0.15, 0.03);
+      bones.Neck.rotation.y = lerp(bones.Neck.rotation.y, turnY * 0.2, 0.025);
     }
   }
 
@@ -342,13 +309,8 @@ function DoctorModel({ isSpeaking }) {
   function applySpeakingTorso(t, bones, anim) {
     if (!bones.Spine2) return;
     const rest = anim.restPose.Spine2 || { x: 0, y: 0, z: 0 };
-
-    const swayY = smoothSin(t, 0.25, 0) * 0.03;
-    const leanX = smoothSin(t, 0.15, 1) * 0.015;
-
-    bones.Spine2.rotation.y = lerp(bones.Spine2.rotation.y, rest.y + swayY, 0.03);
-    bones.Spine2.rotation.x = lerp(bones.Spine2.rotation.x, rest.x + leanX, 0.03);
-    bones.Spine2.rotation.z = lerp(bones.Spine2.rotation.z, rest.z + smoothSin(t, 0.2, 2) * 0.015, 0.03);
+    bones.Spine2.rotation.y = lerp(bones.Spine2.rotation.y, rest.y + smoothSin(t, 0.25, 0) * 0.025, 0.025);
+    bones.Spine2.rotation.x = lerp(bones.Spine2.rotation.x, rest.x + smoothSin(t, 0.15, 1) * 0.012, 0.025);
   }
 
   // ========== 說話手勢更新 ==========
@@ -358,7 +320,7 @@ function DoctorModel({ isSpeaking }) {
       if (anim.gestureProgress >= anim.gestureDuration) {
         anim.currentGesture = null;
         anim.gestureProgress = 0;
-        anim.nextGestureTimer = randRange(0.5, 1.8);
+        anim.nextGestureTimer = randRange(0.8, 2.0);
       }
     } else {
       anim.nextGestureTimer -= dt;
@@ -367,7 +329,6 @@ function DoctorModel({ isSpeaking }) {
         anim.currentGesture = gesture;
         anim.gestureProgress = 0;
         anim.gestureDuration = randRange(gesture.duration[0], gesture.duration[1]);
-        anim.gestureTransitionSpeed = randRange(0.025, 0.04);
       }
     }
   }
@@ -388,7 +349,6 @@ function DoctorModel({ isSpeaking }) {
         anim.idleGesture = gesture;
         anim.idleGestureProgress = 0;
         anim.idleGestureDuration = randRange(gesture.duration[0], gesture.duration[1]);
-        anim.idleGestureTransitionSpeed = randRange(0.015, 0.025);
       }
     }
   }
@@ -398,33 +358,29 @@ function DoctorModel({ isSpeaking }) {
     const gesture = isSpeakingMode ? anim.currentGesture : anim.idleGesture;
     const progress = isSpeakingMode ? anim.gestureProgress : anim.idleGestureProgress;
     const duration = isSpeakingMode ? anim.gestureDuration : anim.idleGestureDuration;
-    const speed = isSpeakingMode ? anim.gestureTransitionSpeed : anim.idleGestureTransitionSpeed;
+    const speed = isSpeakingMode ? 0.03 : 0.02;
 
-    // 計算手勢強度（淡入淡出）
+    // 計算手勢強度
     let intensity = 0;
     if (gesture && duration > 0) {
       const fadeIn = Math.min(0.6, duration * 0.2);
       const fadeOut = Math.min(0.8, duration * 0.25);
 
-      if (progress < fadeIn) {
-        intensity = fadeIn > 0 ? progress / fadeIn : 1;
-      } else if (progress > duration - fadeOut) {
-        intensity = fadeOut > 0 ? (duration - progress) / fadeOut : 0;
+      if (progress < fadeIn && fadeIn > 0) {
+        intensity = progress / fadeIn;
+      } else if (progress > duration - fadeOut && fadeOut > 0) {
+        intensity = (duration - progress) / fadeOut;
       } else {
         intensity = 1.0;
       }
       intensity = clamp(intensity, 0, 1);
-      // ease-in-out
-      intensity = intensity * intensity * (3 - 2 * intensity);
+      intensity = intensity * intensity * (3 - 2 * intensity); // ease
     }
 
-    // 需要控制的骨骼
-    const controlledBones = [
-      'RightArm', 'RightForeArm', 'RightHand',
-      'LeftArm', 'LeftForeArm', 'LeftHand',
-    ];
+    // 控制手臂骨骼
+    const armBones = ['RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand', 'Spine'];
 
-    controlledBones.forEach(boneName => {
+    armBones.forEach(boneName => {
       const bone = bones[boneName];
       if (!bone) return;
       const rest = anim.restPose[boneName] || { x: 0, y: 0, z: 0 };
@@ -433,38 +389,18 @@ function DoctorModel({ isSpeaking }) {
       let targetY = rest.y;
       let targetZ = rest.z;
 
-      if (gesture && gesture.bones && gesture.bones[boneName] && intensity > 0) {
+      if (gesture?.bones?.[boneName] && intensity > 0) {
         const g = gesture.bones[boneName];
         targetX = rest.x + (g.x || 0) * intensity;
         targetY = rest.y + (g.y || 0) * intensity;
         targetZ = rest.z + (g.z || 0) * intensity;
-
-        // 微小動態抖動（說話時）
-        if (isSpeakingMode && intensity > 0.3) {
-          targetX += smoothSin(progress * 3, 2.0, boneName.length) * 0.01 * intensity;
-          targetY += smoothSin(progress * 3, 1.5, boneName.length * 2) * 0.008 * intensity;
-        }
       }
 
-      bone.rotation.x = lerp(bone.rotation.x, targetX, speed || 0.03);
-      bone.rotation.y = lerp(bone.rotation.y, targetY, speed || 0.03);
-      bone.rotation.z = lerp(bone.rotation.z, targetZ, speed || 0.03);
-    });
-
-    // Spine 骨骼（只在手勢有定義時才動）
-    ['Spine2', 'Spine1', 'Spine'].forEach(boneName => {
-      const bone = bones[boneName];
-      if (!bone) return;
-      // 如果手勢有定義這個骨骼就套用，否則不干預（讓其他函數控制）
-      if (gesture && gesture.bones && gesture.bones[boneName] && intensity > 0) {
-        const rest = anim.restPose[boneName] || { x: 0, y: 0, z: 0 };
-        const g = gesture.bones[boneName];
-        const targetX = rest.x + (g.x || 0) * intensity;
-        const targetY = rest.y + (g.y || 0) * intensity;
-        const targetZ = rest.z + (g.z || 0) * intensity;
-        bone.rotation.x = lerp(bone.rotation.x, targetX, speed || 0.03);
-        bone.rotation.y = lerp(bone.rotation.y, targetY, speed || 0.03);
-        bone.rotation.z = lerp(bone.rotation.z, targetZ, speed || 0.03);
+      // 確保值是有限數
+      if (isFinite(targetX) && isFinite(targetY) && isFinite(targetZ)) {
+        bone.rotation.x = lerp(bone.rotation.x, targetX, speed);
+        bone.rotation.y = lerp(bone.rotation.y, targetY, speed);
+        bone.rotation.z = lerp(bone.rotation.z, targetZ, speed);
       }
     });
   }
@@ -472,32 +408,29 @@ function DoctorModel({ isSpeaking }) {
   // ========== Idle 嘴巴 ==========
   function applyIdleMouth() {
     [faceMeshRef, teethMeshRef].forEach(meshRef => {
-      if (!meshRef.current) return;
+      if (!meshRef.current?.morphTargetDictionary || !meshRef.current?.morphTargetInfluences) return;
       const dict = meshRef.current.morphTargetDictionary;
       const inf = meshRef.current.morphTargetInfluences;
-      if (!dict || !inf) return;
-      if (dict['mouthOpen'] !== undefined) {
-        inf[dict['mouthOpen']] = lerp(inf[dict['mouthOpen']], 0, 0.1);
-      }
-      if (dict['mouthSmile'] !== undefined) {
-        inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], 0.12, 0.04);
-      }
+      if (dict['mouthOpen'] !== undefined) inf[dict['mouthOpen']] = lerp(inf[dict['mouthOpen']], 0, 0.08);
+      if (dict['mouthSmile'] !== undefined) inf[dict['mouthSmile']] = lerp(inf[dict['mouthSmile']], 0.12, 0.03);
     });
   }
 
   // ========== Idle 頭部 ==========
   function applyIdleHead(state, bones, anim) {
     if (!bones.Head) return;
+    const px = state.pointer?.x || 0;
+    const py = state.pointer?.y || 0;
 
-    const targetY = state.pointer.x * 0.22;
-    const targetX = anim.headRestX - state.pointer.y * 0.1;
+    const targetY = px * 0.2;
+    const targetX = anim.headRestX - py * 0.1;
 
-    bones.Head.rotation.y = lerp(bones.Head.rotation.y, targetY, 0.035);
-    bones.Head.rotation.x = lerp(bones.Head.rotation.x, targetX, 0.035);
-    bones.Head.rotation.z = lerp(bones.Head.rotation.z, 0, 0.04);
+    bones.Head.rotation.y = lerp(bones.Head.rotation.y, targetY, 0.03);
+    bones.Head.rotation.x = lerp(bones.Head.rotation.x, targetX, 0.03);
+    bones.Head.rotation.z = lerp(bones.Head.rotation.z, 0, 0.03);
 
     if (bones.Neck) {
-      bones.Neck.rotation.y = lerp(bones.Neck.rotation.y, targetY * 0.15, 0.025);
+      bones.Neck.rotation.y = lerp(bones.Neck.rotation.y, targetY * 0.12, 0.02);
     }
   }
 
@@ -505,10 +438,7 @@ function DoctorModel({ isSpeaking }) {
   function applyIdleTorso(t, bones, anim) {
     if (!bones.Spine2) return;
     const rest = anim.restPose.Spine2 || { x: 0, y: 0, z: 0 };
-    const idleSway = smoothSin(t, 0.12, 0) * 0.008;
-    bones.Spine2.rotation.y = lerp(bones.Spine2.rotation.y, rest.y + idleSway, 0.02);
-    bones.Spine2.rotation.x = lerp(bones.Spine2.rotation.x, rest.x, 0.02);
-    bones.Spine2.rotation.z = lerp(bones.Spine2.rotation.z, rest.z, 0.02);
+    bones.Spine2.rotation.y = lerp(bones.Spine2.rotation.y, rest.y + smoothSin(t, 0.1, 0) * 0.006, 0.02);
   }
 
   return (
@@ -529,9 +459,31 @@ function extractKeywords(text) {
   return keywords.slice(0, 3);
 }
 
+// ========== WebGL Context Lost 恢復元件 ==========
+function ContextLostHandler({ onContextLost }) {
+  const { gl } = useThree();
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const handleLost = (e) => {
+      e.preventDefault();
+      console.warn('WebGL context lost, will attempt recovery...');
+      if (onContextLost) onContextLost();
+    };
+    canvas.addEventListener('webglcontextlost', handleLost);
+    return () => canvas.removeEventListener('webglcontextlost', handleLost);
+  }, [gl, onContextLost]);
+  return null;
+}
+
 // ========== 主匯出元件 ==========
 export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false, currentText = '' }) {
   const keywords = extractKeywords(currentText);
+  const [contextKey, setContextKey] = useState(0);
+
+  const handleContextLost = useCallback(() => {
+    // 重建整個 Canvas 來恢復 WebGL context
+    setTimeout(() => setContextKey(k => k + 1), 1000);
+  }, []);
 
   const cameraSettings = isMobile
     ? { position: [0, 0.8, 3.5], fov: 26 }
@@ -548,10 +500,18 @@ export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false,
       title={isSpeaking ? '點擊停止說話' : ''}
     >
       <Canvas
+        key={contextKey}
         camera={cameraSettings}
-        gl={{ antialias: true, powerPreference: 'default' }}
-        dpr={[1, 1.5]}
+        gl={{
+          antialias: true,
+          powerPreference: 'default',
+          failIfMajorPerformanceCaveat: false,
+          preserveDrawingBuffer: false,
+        }}
+        dpr={[1, isMobile ? 1 : 1.5]}
+        performance={{ min: 0.5 }}
       >
+        <ContextLostHandler onContextLost={handleContextLost} />
         <ambientLight intensity={2} />
         <Environment preset="city" />
         <DoctorModel isSpeaking={isSpeaking} />
