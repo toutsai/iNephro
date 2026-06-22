@@ -9,17 +9,17 @@
  * 需要環境變數：
  * - VITE_API_BASE_URL 或使用預設的 production URL
  */
+/* global process */
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getWarmupQuestions } from '../api/_shared/warmupQuestions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 讀取常見問題列表
-const questionsPath = path.join(__dirname, 'common-questions.json');
-const { commonQuestions } = JSON.parse(fs.readFileSync(questionsPath, 'utf-8'));
+const warmupQuestions = getWarmupQuestions();
 
 // API 端點設定
 const API_BASE_URL = process.env.VITE_API_BASE_URL || 'https://i-nephro.vercel.app';
@@ -54,7 +54,7 @@ async function warmupQuestion(question, index, total) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message: question })
+      body: JSON.stringify({ question })
     });
 
     if (!response.ok) {
@@ -82,9 +82,9 @@ async function main() {
   log('🚀 iNephro 快取預熱開始', 'blue');
   log('========================================\n', 'blue');
 
-  log(`📋 總共 ${commonQuestions.length} 個問題需要預熱`, 'yellow');
+  log(`📋 總共 ${warmupQuestions.length} 個問題需要預熱`, 'yellow');
   log(`🌐 API 端點: ${API_ENDPOINT}`, 'yellow');
-  log(`⏱️  預計需要 ${Math.ceil(commonQuestions.length * 5 / 60)} 分鐘\n`, 'yellow');
+  log(`⏱️  預計需要 ${Math.ceil(warmupQuestions.length * 5 / 60)} 分鐘\n`, 'yellow');
 
   const results = {
     success: [],
@@ -93,8 +93,8 @@ async function main() {
 
   const startTime = Date.now();
 
-  for (let i = 0; i < commonQuestions.length; i++) {
-    const result = await warmupQuestion(commonQuestions[i], i, commonQuestions.length);
+  for (let i = 0; i < warmupQuestions.length; i++) {
+    const result = await warmupQuestion(warmupQuestions[i], i, warmupQuestions.length);
 
     if (result.success) {
       results.success.push(result);
@@ -103,7 +103,7 @@ async function main() {
     }
 
     // 每個請求之間延遲 2 秒，避免觸發速率限制
-    if (i < commonQuestions.length - 1) {
+    if (i < warmupQuestions.length - 1) {
       await delay(2000);
     }
   }
@@ -119,7 +119,7 @@ async function main() {
   log(`✅ 成功: ${results.success.length}`, 'green');
   log(`❌ 失敗: ${results.failed.length}`, results.failed.length > 0 ? 'red' : 'green');
   log(`⏱️  總耗時: ${duration} 秒`, 'cyan');
-  log(`📈 成功率: ${(results.success.length / commonQuestions.length * 100).toFixed(1)}%`, 'cyan');
+  log(`📈 成功率: ${(results.success.length / warmupQuestions.length * 100).toFixed(1)}%`, 'cyan');
 
   if (results.failed.length > 0) {
     log('\n❌ 失敗的問題:', 'red');
@@ -134,10 +134,10 @@ async function main() {
   const logData = {
     timestamp: new Date().toISOString(),
     duration: `${duration}s`,
-    total: commonQuestions.length,
+    total: warmupQuestions.length,
     success: results.success.length,
     failed: results.failed.length,
-    successRate: `${(results.success.length / commonQuestions.length * 100).toFixed(1)}%`,
+    successRate: `${(results.success.length / warmupQuestions.length * 100).toFixed(1)}%`,
     results: results
   };
 

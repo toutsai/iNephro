@@ -4,8 +4,9 @@
  * 功能：自動預熱常見問題到快取
  * 可透過 Vercel Cron Jobs 定時執行
  */
+/* global process */
 
-import commonQuestionsData from '../scripts/common-questions.json' assert { type: 'json' };
+import { getWarmupQuestions } from './_shared/warmupQuestions.js';
 
 // 延遲函數
 function delay(ms) {
@@ -49,7 +50,7 @@ export default async function handler(req, res) {
 
   console.log('🚀 開始快取預熱...');
 
-  const { commonQuestions } = commonQuestionsData;
+  const commonQuestions = getWarmupQuestions();
   const results = { success: [], failed: [] };
   const startTime = Date.now();
 
@@ -61,7 +62,7 @@ export default async function handler(req, res) {
   console.log(`📋 總共 ${commonQuestions.length} 個問題`);
   console.log(`🌐 API 端點: ${apiUrl}`);
 
-  // 逐一預熱問題
+  // 逐一預熱問題。優先題目排在前面，讓每日 cron 即使中途失敗也先保住主題入口。
   for (let i = 0; i < commonQuestions.length; i++) {
     const question = commonQuestions[i];
     console.log(`[${i + 1}/${commonQuestions.length}] ${question}`);

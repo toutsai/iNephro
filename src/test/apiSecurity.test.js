@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import chatHandler, { getAssistantId, retrieveRunStatus } from '../../api/chat.js';
+import chatHandler, { getAssistantId, getCacheTtlSeconds, retrieveRunStatus } from '../../api/chat.js';
 import nutritionHandler from '../../api/nutrition.js';
 import ttsGoogleHandler from '../../api/tts-google.js';
 
@@ -81,6 +81,11 @@ describe('chat API safety guards', () => {
     await retrieveRunStatus(client, 'thread_123', 'run_456');
 
     expect(retrieve).toHaveBeenCalledWith('run_456', { thread_id: 'thread_123' });
+  });
+
+  it('keeps hot nephrology topics cached longer than one-off questions', () => {
+    expect(getCacheTtlSeconds('請說明慢性腎臟病(CKD)的五個分期是什麼？')).toBe(30 * 24 * 60 * 60);
+    expect(getCacheTtlSeconds('今天早餐可以吃什麼？')).toBe(24 * 60 * 60);
   });
 
   it('blocks red-flag symptoms before calling external services', async () => {
@@ -210,6 +215,7 @@ describe('chat API smoke coverage', () => {
     expect(body.reply).toContain('這是知識庫測試回覆');
     expect(body.confidence).toBe('high');
     expect(body.sources).toHaveLength(1);
+    expect(response.headers.get('Server-Timing')).toContain('total_ms');
   });
 
   it('keeps red-flag questions on the safety path', async () => {
