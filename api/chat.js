@@ -13,6 +13,7 @@ import {
 const MAX_QUESTION_LENGTH = 800;
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
 const ASSISTANT_UNAVAILABLE_MESSAGE = '目前知識庫服務暫時無法回覆，請稍後再試。若您有胸痛、呼吸困難、昏倒、意識改變、無尿、嚴重水腫、吐血或黑便等急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。';
+const RATE_LIMIT_MESSAGE = '請求過於頻繁，請稍後再試。若您有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。';
 const RED_FLAG_MESSAGE = '您描述的情況可能需要即時醫療評估。請立即聯絡主治醫師、前往急診，或有急迫症狀時撥打 119。本系統無法取代急症評估。';
 const RED_FLAG_PATTERNS = [
   /胸痛|胸悶.*冒冷汗|冒冷汗.*胸悶/,
@@ -198,7 +199,7 @@ async function checkRateLimit(cache, ip) {
     return count <= 20;
   } catch (e) {
     console.warn('Rate limit check failed:', e);
-    return false;
+    return true;
   }
 }
 
@@ -231,15 +232,6 @@ export default async function handler(request) {
       ? new UpstashCache(UPSTASH_URL, UPSTASH_TOKEN)
       : null;
 
-    // Rate limiting
-    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    if (cache) {
-      const allowed = await checkRateLimit(cache, clientIP);
-      if (!allowed) {
-        return jsonResponse({ error: '請求暫時無法處理，請稍後再試' }, 503, corsHeaders);
-      }
-    }
-
     // 2. 解析請求
     const { data: payload, error: parseError } = await parseJsonBody(request);
     if (parseError) {
@@ -265,6 +257,21 @@ export default async function handler(request) {
         sources: [],
         fromCache: false,
       }, 200, corsHeaders, { 'X-Safety-Guard': 'red-flag' });
+    }
+
+    // Rate limiting. Red-flag safety guidance is returned before this guard.
+    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (cache) {
+      const allowed = await checkRateLimit(cache, clientIP);
+      if (!allowed) {
+        return jsonResponse({
+          error: 'Rate limit exceeded',
+          reply: RATE_LIMIT_MESSAGE,
+          confidence: 'unavailable',
+          sources: [],
+          fromCache: false,
+        }, 429, corsHeaders);
+      }
     }
 
     // 3. 生成快取鍵
@@ -302,14 +309,14 @@ export default async function handler(request) {
     const OPENAI_KEY = process.env.OPENAI_API_KEY;
     const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
-    if (!OPENAI_KEY) {
-      throw new Error('OpenAI API Key not configured');
-    }
-
     // 6. 調用 AI（僅 Assistants API；失敗時不降級為一般醫療建議）
     let result;
 
     try {
+      if (!OPENAI_KEY) {
+        throw new Error('OpenAI API Key not configured');
+      }
+
       if (ASSISTANT_ID && ASSISTANT_ID.startsWith('asst_')) {
         console.log('📚 使用 Assistants API');
         result = await callAssistantAPI(trimmedQuestion, OPENAI_KEY, ASSISTANT_ID);
