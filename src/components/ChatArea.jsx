@@ -16,6 +16,18 @@ function ChatArea({
 }) {
   const messagesEndRef = useRef(null);
 
+  const getMessageVariant = (msg) => {
+    if (msg.confidence === 'safety') return 'safety';
+    if (msg.confidence === 'unavailable') return 'unavailable';
+    return 'standard';
+  };
+
+  const getVariantLabel = (variant) => {
+    if (variant === 'safety') return '即時就醫提醒';
+    if (variant === 'unavailable') return '知識庫暫時無法回覆';
+    return '';
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, revealedIndex]);
@@ -33,6 +45,9 @@ function ChatArea({
       <div className="chat-scroll-area">
         {messages.map((msg, index) => {
           const { content, suggestions } = parseMessage(msg.text);
+          const variant = getMessageVariant(msg);
+          const variantLabel = getVariantLabel(variant);
+          const suppressSuggestions = variant !== 'standard';
 
           // KTV 字幕：最後一則醫師訊息 + 正在說話時，逐字顯示
           const isKTV = isDoctorSpeaking && index === lastDoctorIdx && revealedIndex >= 0 && currentSpeechText;
@@ -57,8 +72,11 @@ function ChatArea({
                   />
                 </div>
               )}
-              <div className={`message ${msg.role} ${isKTV ? 'ktv-active' : ''}`}>
+              <div className={`message ${msg.role} ${isKTV ? 'ktv-active' : ''} ${variant !== 'standard' ? `message-${variant}` : ''}`}>
                 <div className="markdown-content">
+                  {variantLabel && !msg.isThinking && (
+                    <div className="message-status-label">{variantLabel}</div>
+                  )}
                   {msg.isThinking ? (
                     <>
                       {content}
@@ -74,7 +92,7 @@ function ChatArea({
                   {isKTV && <span className="ktv-cursor">|</span>}
                 </div>
               </div>
-              {msg.role === 'doctor' && suggestions.length > 0 && !isKTV && (
+              {msg.role === 'doctor' && suggestions.length > 0 && !isKTV && !suppressSuggestions && (
                 <div className="suggestion-chips">
                   {suggestions.map((s, i) => (
                     <button key={i} className="chip" onClick={() => handleSend(s)}>{s}</button>
