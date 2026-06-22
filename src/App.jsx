@@ -4,7 +4,7 @@ import './App.css';
 import ErrorBoundary from './components/ErrorBoundary';
 const Doctor3D = React.lazy(() => import('./Doctor3D'));
 
-import { TOPIC_DATA, KEYWORD_POOL } from './constants/topics';
+import { TOPIC_DATA, KEYWORD_POOL, PRESENTER_TOPICS } from './constants/topics';
 import { useSpeech } from './hooks/useSpeech';
 import { useChat } from './hooks/useChat';
 import { useNutrition } from './hooks/useNutrition';
@@ -15,13 +15,18 @@ import NutritionModal from './components/NutritionModal';
 import NutritionResult from './components/NutritionResult';
 import EGFRCalculator from './components/EGFRCalculator';
 
+function getRandomTopics() {
+  const shuffled = [...KEYWORD_POOL].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, 6);
+}
+
 function App() {
   const [activeCategory, setActiveCategory] = useState('home');
-  const [randomTopics, setRandomTopics] = useState([]);
-  const [isDoctorMinimized, setIsDoctorMinimized] = useState(false);
+  const [randomTopics, setRandomTopics] = useState(() => getRandomTopics());
   const [showEGFR, setShowEGFR] = useState(false);
   const [showNutritionPopup, setShowNutritionPopup] = useState(false);
   const [mobileTab, setMobileTab] = useState('chat');
+  const [presenterTopicKey, setPresenterTopicKey] = useState(null);
   const [fontSize, setFontSize] = useState(() => {
     return parseInt(localStorage.getItem('inephro_fontsize') || '15', 10);
   });
@@ -68,24 +73,19 @@ function App() {
   };
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
-  }, []);
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : '');
+  }, [darkMode]);
 
   useEffect(() => {
-    if (fontSize !== 15) {
-      document.documentElement.style.setProperty('--font-size-base', `${fontSize}px`);
-      document.documentElement.style.setProperty('--font-size-small', `${fontSize - 2}px`);
-      document.documentElement.style.setProperty('--font-size-chip', `${fontSize - 1}px`);
-      document.documentElement.style.setProperty('--font-size-input', `${fontSize + 1}px`);
-    }
-  }, []);
+    document.documentElement.style.setProperty('--font-size-base', `${fontSize}px`);
+    document.documentElement.style.setProperty('--font-size-small', `${fontSize - 2}px`);
+    document.documentElement.style.setProperty('--font-size-chip', `${fontSize - 1}px`);
+    document.documentElement.style.setProperty('--font-size-input', `${fontSize + 1}px`);
+  }, [fontSize]);
 
   const {
     nutritionQuery, setNutritionQuery,
     nutritionResults, isSearchingNutrition,
-    showNutritionModal, setShowNutritionModal,
     handleNutritionSearch,
   } = useNutrition();
 
@@ -97,13 +97,8 @@ function App() {
 
   // --- Random topics ---
   const refreshTopics = useCallback(() => {
-    const shuffled = [...KEYWORD_POOL].sort(() => 0.5 - Math.random());
-    setRandomTopics(shuffled.slice(0, 6));
+    setRandomTopics(getRandomTopics());
   }, []);
-
-  useEffect(() => {
-    refreshTopics();
-  }, [refreshTopics]);
 
   // --- Menu click handler ---
   const handleMenuClick = (keyOrKeyword) => {
@@ -115,8 +110,10 @@ function App() {
 
     if (TOPIC_DATA[keyOrKeyword]) {
       prompt = TOPIC_DATA[keyOrKeyword].prompt;
+      setPresenterTopicKey(keyOrKeyword);
     } else {
       prompt = `請詳細介紹關於「${keyOrKeyword}」的腎臟科衛教知識，包含定義、症狀與照護重點。`;
+      setPresenterTopicKey(null);
     }
 
     // 顯示「思考中」訊息（不顯示圖片）
@@ -127,6 +124,49 @@ function App() {
   };
 
   const lastDoctorText = messages.filter(m => m.role === 'doctor').slice(-1)[0]?.text || '';
+  const presenterTopic = presenterTopicKey ? PRESENTER_TOPICS[presenterTopicKey] : null;
+  const presenterPanel = presenterTopic ? (
+    <section className="presenter-panel" aria-label={`${presenterTopic.title} 講解模式`}>
+      <div className="presenter-doctor-stage">
+        <ErrorBoundary fallback={<div className="presenter-fallback">3D 醫師載入失敗</div>}>
+          <React.Suspense fallback={<div className="presenter-fallback">載入中...</div>}>
+            <Doctor3D
+              isSpeaking={isDoctorSpeaking}
+              onStopSpeaking={stopSpeaking}
+              currentText={lastDoctorText}
+            />
+          </React.Suspense>
+        </ErrorBoundary>
+        <div className="presenter-doctor-status">
+          {isDoctorSpeaking ? '講解中' : '待命中'}
+        </div>
+      </div>
+      <div className="presenter-brief">
+        <div className="presenter-toolbar">
+          <span className="presenter-mode-label">講解模式</span>
+          <button className="presenter-close-btn" onClick={() => setPresenterTopicKey(null)}>
+            回到對話
+          </button>
+        </div>
+        <div className="presenter-title-row">
+          <span className="presenter-topic-label">{presenterTopic.label}</span>
+          <h2>{presenterTopic.title}</h2>
+        </div>
+        <p className="presenter-subtitle">{presenterTopic.subtitle}</p>
+        <div className="presenter-step-grid">
+          {presenterTopic.steps.map((step, index) => (
+            <article key={step.title} className="presenter-step-card">
+              <span className="presenter-step-number">{index + 1}</span>
+              <div>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  ) : null;
 
   return (
     <div className="main-container">
@@ -221,10 +261,11 @@ function App() {
         revealedIndex={revealedIndex}
         currentSpeechText={currentSpeechText}
         isSending={isSending}
+        topPanel={presenterPanel}
       />
 
       {/* 右欄：3D 醫師 (桌面版) */}
-      <div className="right-panel">
+      <div className={`right-panel ${presenterTopic ? 'presenter-hidden' : ''}`}>
         <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}</div>
         <div className="doctor-container">
           <ErrorBoundary fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999',fontSize:'14px'}}>3D 模型載入失敗</div>}>

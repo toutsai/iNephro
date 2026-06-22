@@ -14,6 +14,7 @@ function ChatArea({
   revealedIndex = -1,
   currentSpeechText = '',
   isSending = false,
+  topPanel = null,
 }) {
   const messagesEndRef = useRef(null);
 
@@ -43,6 +44,7 @@ function ChatArea({
 
   return (
     <div className={`center-stage ${className}`}>
+      {topPanel}
       <div className="chat-scroll-area">
         {messages.map((msg, index) => {
           const { content, suggestions } = parseMessage(msg.text);
