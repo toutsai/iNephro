@@ -41,7 +41,7 @@ function App() {
 
   const {
     messages, setMessages, input, setInput,
-    callAI, handleSend, clearMessages,
+    callAI, handleSend, clearMessages, isSending,
   } = useChat(speak, () => setIsDoctorSpeaking(false));
 
   // --- Font size control ---
@@ -107,6 +107,8 @@ function App() {
 
   // --- Menu click handler ---
   const handleMenuClick = (keyOrKeyword) => {
+    if (isSending) return;
+
     setActiveCategory(keyOrKeyword);
 
     let prompt = "";
@@ -144,8 +146,10 @@ function App() {
           {Object.keys(TOPIC_DATA).map(key => (
             <div
               key={key}
-              className={`quick-topic-chip ${activeCategory === key ? 'active' : ''}`}
+              className={`quick-topic-chip ${activeCategory === key ? 'active' : ''} ${isSending ? 'disabled' : ''}`}
               onClick={() => handleMenuClick(key)}
+              title={TOPIC_DATA[key].prompt}
+              aria-disabled={isSending}
             >
               ⭐ {TOPIC_DATA[key].title}
             </div>
@@ -153,8 +157,10 @@ function App() {
           {randomTopics.map((keyword, index) => (
             <div
               key={`quick-${index}`}
-              className={`quick-topic-chip ${activeCategory === keyword ? 'active' : ''}`}
+              className={`quick-topic-chip ${activeCategory === keyword ? 'active' : ''} ${isSending ? 'disabled' : ''}`}
               onClick={() => handleMenuClick(keyword)}
+              title={`請詳細介紹關於「${keyword}」的腎臟科衛教知識`}
+              aria-disabled={isSending}
             >
               {keyword}
             </div>
@@ -172,6 +178,7 @@ function App() {
         setNutritionQuery={setNutritionQuery}
         handleNutritionSearch={handleNutritionSearchWithPopup}
         isSearchingNutrition={isSearchingNutrition}
+        isSending={isSending}
         onShowEGFR={() => setShowEGFR(true)}
         onClearMessages={clearMessages}
         fontSize={fontSize}
@@ -213,6 +220,7 @@ function App() {
         isDoctorSpeaking={isDoctorSpeaking}
         revealedIndex={revealedIndex}
         currentSpeechText={currentSpeechText}
+        isSending={isSending}
       />
 
       {/* 右欄：3D 醫師 (桌面版) */}
@@ -313,6 +321,8 @@ function App() {
             <div className="mobile-topics-grid">
               {Object.keys(TOPIC_DATA).map(key => (
                 <div key={key} className="mobile-topic-item"
+                  title={TOPIC_DATA[key].prompt}
+                  aria-disabled={isSending}
                   onClick={() => { setMobileTab('chat'); handleMenuClick(key); }}>
                   {TOPIC_DATA[key].title}
                 </div>
@@ -329,6 +339,8 @@ function App() {
             <div className="mobile-topics-grid">
               {randomTopics.map((keyword, index) => (
                 <div key={index} className="mobile-topic-item"
+                  title={`請詳細介紹關於「${keyword}」的腎臟科衛教知識`}
+                  aria-disabled={isSending}
                   onClick={() => { setMobileTab('chat'); handleMenuClick(keyword); }}>
                   {keyword}
                 </div>

@@ -3,10 +3,55 @@ import chatHandler, { getAssistantId, retrieveRunStatus } from '../../api/chat.j
 import nutritionHandler from '../../api/nutrition.js';
 import ttsGoogleHandler from '../../api/tts-google.js';
 
+const assistantMock = vi.hoisted(() => ({
+  reply: '這是知識庫測試回覆。',
+  annotations: [{ type: 'file_citation', text: 'citation' }],
+  status: 'completed',
+  lastError: null,
+}));
+
+vi.mock('openai', () => ({
+  default: vi.fn(function OpenAI() {
+    return {
+      beta: {
+        threads: {
+          create: vi.fn(async () => ({ id: 'thread_test' })),
+          messages: {
+            create: vi.fn(async () => ({ id: 'message_test' })),
+            list: vi.fn(async () => ({
+              data: [{
+                role: 'assistant',
+                run_id: 'run_test',
+                content: [{
+                  text: {
+                    value: assistantMock.reply,
+                    annotations: assistantMock.annotations,
+                  },
+                }],
+              }],
+            })),
+          },
+          runs: {
+            create: vi.fn(async () => ({ id: 'run_test' })),
+            retrieve: vi.fn(async () => ({
+              status: assistantMock.status,
+              last_error: assistantMock.lastError,
+            })),
+          },
+        },
+      },
+    };
+  }),
+}));
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  assistantMock.reply = '這是知識庫測試回覆。';
+  assistantMock.annotations = [{ type: 'file_citation', text: 'citation' }];
+  assistantMock.status = 'completed';
+  assistantMock.lastError = null;
 });
 
 describe('chat API safety guards', () => {
@@ -133,6 +178,52 @@ describe('chat API safety guards', () => {
     expect(response.status).toBe(429);
     expect(body.reply).toContain('請求過於頻繁');
     expect(body.confidence).toBe('unavailable');
+  });
+});
+
+describe('chat API smoke coverage', () => {
+  const postChat = (question) => chatHandler(new Request('https://i-nephro.vercel.app/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      origin: 'https://i-nephro.vercel.app',
+      'x-forwarded-for': '203.0.113.20',
+    },
+    body: JSON.stringify({ question }),
+  }));
+
+  it.each([
+    ['general question', '什麼是蛋白尿？'],
+    ['AKI topic', '請簡單介紹急性腎損傷(AKI)的定義與常見原因。'],
+    ['CKD topic', '請說明慢性腎臟病(CKD)的五個分期是什麼？'],
+    ['hemodialysis topic', '請詳細介紹血液透析（洗腎）的原理、流程、注意事項與照護重點。'],
+    ['peritoneal dialysis topic', '請說明腹膜透析的原理、優缺點、操作方式與居家照護注意事項。'],
+  ])('returns a knowledge-base response for %s', async (_caseName, question) => {
+    vi.stubEnv('OPENAI_API_KEY', 'sk-test');
+    vi.stubEnv('ASSISTANT_ID', 'asst_test');
+
+    const response = await postChat(question);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.reply).toContain('此回答基於專業知識庫');
+    expect(body.reply).toContain('這是知識庫測試回覆');
+    expect(body.confidence).toBe('high');
+    expect(body.sources).toHaveLength(1);
+  });
+
+  it('keeps red-flag questions on the safety path', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'sk-test');
+    vi.stubEnv('ASSISTANT_ID', 'asst_test');
+
+    const response = await postChat('我胸痛喘不過氣');
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-Safety-Guard')).toBe('red-flag');
+    expect(body.confidence).toBe('safety');
+    expect(body.reply).toContain('急診');
+    expect(body.reply).toContain('119');
   });
 });
 

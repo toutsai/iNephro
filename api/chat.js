@@ -135,21 +135,36 @@ export async function retrieveRunStatus(client, threadId, runId) {
   return client.beta.threads.runs.retrieve(runId, { thread_id: threadId });
 }
 
+function createChatLogger(requestId) {
+  return (stage, details = {}, level = 'log') => {
+    const payload = {
+      event: 'chat_api',
+      requestId,
+      stage,
+      ...details,
+    };
+    console[level](JSON.stringify(payload));
+  };
+}
+
 /**
  * 調用 Assistants API（穩定版 polling，快速間隔）
  */
-async function callAssistantAPI(question, apiKey, assistantId) {
+async function callAssistantAPI(question, apiKey, assistantId, log = () => {}) {
   const client = new OpenAI({ apiKey });
 
   // 1. 建立 Thread + 加入訊息 + 執行（合併減少延遲）
   const thread = await client.beta.threads.create();
+  log('create_thread', { threadId: thread.id });
   await client.beta.threads.messages.create(thread.id, {
     role: 'user',
     content: question
   });
+  log('create_message', { threadId: thread.id });
   const run = await client.beta.threads.runs.create(thread.id, {
     assistant_id: assistantId
   });
+  log('create_run', { threadId: thread.id, runId: run.id });
 
   // 2. 快速 polling（前 5 次 300ms，之後 800ms，最多 25 秒）
   let attempts = 0;
@@ -160,6 +175,7 @@ async function callAssistantAPI(question, apiKey, assistantId) {
     await new Promise(resolve => setTimeout(resolve, delay));
 
     const runStatus = await retrieveRunStatus(client, thread.id, run.id);
+    log('poll_run', { threadId: thread.id, runId: run.id, status: runStatus.status, attempts: attempts + 1 });
 
     if (runStatus.status === 'completed') {
       const messages = await client.beta.threads.messages.list(thread.id);
@@ -171,16 +187,29 @@ async function callAssistantAPI(question, apiKey, assistantId) {
       const reply = assistantMessage.content[0].text.value;
       const annotations = assistantMessage.content[0].text.annotations || [];
       const confidence = annotations.length > 0 ? 'high' : 'medium';
+      log('retrieve_messages', {
+        threadId: thread.id,
+        runId: run.id,
+        messageCount: messages.data.length,
+        annotationCount: annotations.length,
+      });
       return { reply, confidence, sources: annotations };
     }
 
     if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
+      log('run_terminal_failure', {
+        threadId: thread.id,
+        runId: run.id,
+        status: runStatus.status,
+        error: runStatus.last_error?.message || 'Unknown error',
+      }, 'warn');
       throw new Error(`Run failed: ${runStatus.last_error?.message || 'Unknown error'}`);
     }
 
     attempts++;
   }
 
+  log('run_timeout', { threadId: thread.id, runId: run.id, attempts }, 'warn');
   throw new Error('Run timeout');
 }
 
@@ -217,6 +246,8 @@ async function checkRateLimit(cache, ip) {
 export default async function handler(request) {
   // CORS headers
   const corsHeaders = getCorsHeaders(request, ['POST']);
+  const requestId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const log = createChatLogger(requestId);
 
   // 處理 OPTIONS 請求（CORS preflight）
   if (request.method === 'OPTIONS') {
@@ -327,7 +358,7 @@ export default async function handler(request) {
 
       if (ASSISTANT_ID && ASSISTANT_ID.startsWith('asst_')) {
         console.log('📚 使用 Assistants API');
-        result = await callAssistantAPI(trimmedQuestion, OPENAI_KEY, ASSISTANT_ID);
+        result = await callAssistantAPI(trimmedQuestion, OPENAI_KEY, ASSISTANT_ID, log);
 
         // 標記知識庫來源
         if (result.confidence === 'high' && result.sources.length > 0) {
@@ -338,6 +369,7 @@ export default async function handler(request) {
       }
     } catch (error) {
       console.warn('⚠️ Assistants API 失敗:', error.message);
+      log('assistant_unavailable', { error: error.message }, 'warn');
       return jsonResponse({
         error: 'Knowledge base unavailable',
         reply: ASSISTANT_UNAVAILABLE_MESSAGE,

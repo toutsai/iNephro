@@ -13,6 +13,7 @@ function ChatArea({
   className = '',
   revealedIndex = -1,
   currentSpeechText = '',
+  isSending = false,
 }) {
   const messagesEndRef = useRef(null);
 
@@ -95,7 +96,7 @@ function ChatArea({
               {msg.role === 'doctor' && suggestions.length > 0 && !isKTV && !suppressSuggestions && (
                 <div className="suggestion-chips">
                   {suggestions.map((s, i) => (
-                    <button key={i} className="chip" onClick={() => handleSend(s)}>{s}</button>
+                    <button key={i} className="chip" onClick={() => handleSend(s)} disabled={isSending}>{s}</button>
                   ))}
                 </div>
               )}
@@ -107,15 +108,18 @@ function ChatArea({
 
       <div className="input-area-wrapper">
         <div className="input-group">
-          <button className={`icon-btn ${isRecording ? 'recording' : ''}`} onClick={handleVoiceInput}>🎙️</button>
+          <button className={`icon-btn ${isRecording ? 'recording' : ''}`} onClick={handleVoiceInput} disabled={isSending}>🎙️</button>
           <input
             className="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={isRecording ? "聆聽中..." : "用講ㄟ也會通，打字輸入也可以"}
+            placeholder={isSending ? "正在查詢知識庫..." : (isRecording ? "聆聽中..." : "用講ㄟ也會通，打字輸入也可以")}
+            disabled={isSending}
           />
-          <button className="icon-btn" onClick={() => handleSend()} style={{color: 'var(--accent)'}}>➤</button>
+          <button className="icon-btn" onClick={() => handleSend()} style={{color: 'var(--accent)'}} disabled={isSending}>
+            {isSending ? '⏳' : '➤'}
+          </button>
         </div>
       </div>
     </div>

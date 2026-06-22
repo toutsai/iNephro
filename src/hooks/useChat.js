@@ -41,6 +41,7 @@ export function useChat(speak, onSendCallback) {
     return [INITIAL_MESSAGE];
   });
   const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   // 對話持久化：儲存到 sessionStorage
   useEffect(() => {
@@ -53,6 +54,8 @@ export function useChat(speak, onSendCallback) {
   }, [messages]);
 
   const callAI = async (userPrompt) => {
+    setIsSending(true);
+
     // 移除思考提示（在實際回應前）
     const removeThinkingMessage = () => {
       setMessages(prev => prev.filter(msg => !msg.isThinking));
@@ -80,6 +83,7 @@ export function useChat(speak, onSendCallback) {
           removeThinkingMessage();
           setMessages(prev => [...prev, { role: 'doctor', text: reply, confidence }]);
           speak(reply);
+          setIsSending(false);
           return;
         } else {
           localStorage.removeItem(cacheKey);
@@ -117,6 +121,7 @@ export function useChat(speak, onSendCallback) {
               confidence: errorData.confidence || 'unavailable',
             }]);
             speak(errorData.reply);
+            setIsSending(false);
             return;
           }
           throw new Error(`HTTP ${response.status}: ${errorData.error || 'Request failed'}`);
@@ -171,10 +176,14 @@ export function useChat(speak, onSendCallback) {
         confidence: 'unavailable',
       }]);
       speak(errorMessage);
+    } finally {
+      setIsSending(false);
     }
   };
 
   const handleSend = (text = null) => {
+    if (isSending) return;
+
     const question = text || input;
     if (!question.trim()) return;
 
@@ -202,5 +211,6 @@ export function useChat(speak, onSendCallback) {
     callAI,
     handleSend,
     clearMessages,
+    isSending,
   };
 }
