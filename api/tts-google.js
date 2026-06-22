@@ -1,5 +1,6 @@
 // api/tts-google.js - Google Cloud Text-to-Speech API
 // 支援台灣國語語音（最接近台語的選項）
+/* global process */
 
 // Edge Runtime 配置
 export const config = {
@@ -36,6 +37,8 @@ const TAIWAN_VOICES = {
     description: '台灣男聲（溫和）'
   },
 };
+
+const MAX_TTS_TEXT_LENGTH = 1200;
 
 /**
  * 調用 Google Cloud TTS REST API
@@ -90,14 +93,19 @@ async function generateSpeech(text, voiceId = 'tw-male-1') {
  */
 function getCorsHeaders(request) {
   const origin = request.headers?.get('origin') || '';
-  const allowedPatterns = [
+  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
+  const allowedOrigins = new Set([
+    'https://inephro.vercel.app',
+    ...envOrigins,
+  ]);
+  const allowedLocalPatterns = [
     /^https?:\/\/localhost(:\d+)?$/,
     /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
-    /^https:\/\/.*\.vercel\.app$/,
-    /^https:\/\/inephro\.vercel\.app$/,
-    /^https:\/\/.*inephro.*\.vercel\.app$/,
   ];
-  const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+  const isAllowed = allowedOrigins.has(origin) || allowedLocalPatterns.some(pattern => pattern.test(origin));
   return {
     'Access-Control-Allow-Origin': isAllowed ? origin : '',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -135,12 +143,22 @@ export default async function handler(request) {
   if (request.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json', Allow: 'GET, POST, OPTIONS' } }
     );
   }
 
   try {
-    const { text, voice = 'tw-male-1' } = await request.json();
+    let payload;
+    try {
+      payload = await request.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { text, voice = 'tw-male-1' } = payload;
 
     if (!text || typeof text !== 'string') {
       return new Response(
@@ -149,10 +167,9 @@ export default async function handler(request) {
       );
     }
 
-    // Google TTS 限制 5000 字元
-    if (text.length > 5000) {
+    if (text.length > MAX_TTS_TEXT_LENGTH) {
       return new Response(
-        JSON.stringify({ error: 'Text too long (max 5000 characters)' }),
+        JSON.stringify({ error: `Text too long (max ${MAX_TTS_TEXT_LENGTH} characters)` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -177,19 +194,14 @@ export default async function handler(request) {
   } catch (error) {
     console.error('❌ Google TTS 錯誤:', error);
 
-    let errorMessage = 'TTS service error';
     let statusCode = 500;
 
-    if (error.message?.includes('API key')) {
-      errorMessage = 'Google Cloud API Key not configured';
-      statusCode = 500;
-    } else if (error.message?.includes('quota')) {
-      errorMessage = 'API quota exceeded';
+    if (error.message?.includes('quota')) {
       statusCode = 429;
     }
 
     return new Response(
-      JSON.stringify({ error: errorMessage, details: error.message }),
+      JSON.stringify({ error: 'TTS service unavailable' }),
       {
         status: statusCode,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -4,6 +4,7 @@
  * 功能：查詢食物營養成分（鈉、鉀、磷、鈣、鎂等）
  * 資料來源：衛生福利部食品藥物管理署 - 食品營養成分資料庫
  */
+/* global process */
 
 // Edge Runtime 配置
 export const config = {
@@ -290,17 +291,22 @@ function getKidneyWarnings(food) {
  */
 function getCorsHeaders(request) {
   const origin = request.headers?.get('origin') || '';
-  const allowedPatterns = [
+  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
+  const allowedOrigins = new Set([
+    'https://inephro.vercel.app',
+    ...envOrigins,
+  ]);
+  const allowedLocalPatterns = [
     /^https?:\/\/localhost(:\d+)?$/,
     /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
-    /^https:\/\/.*\.vercel\.app$/,
-    /^https:\/\/inephro\.vercel\.app$/,
-    /^https:\/\/.*inephro.*\.vercel\.app$/,
   ];
-  const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+  const isAllowed = allowedOrigins.has(origin) || allowedLocalPatterns.some(pattern => pattern.test(origin));
   return {
     'Access-Control-Allow-Origin': isAllowed ? origin : '',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     ...(isAllowed ? { 'Vary': 'Origin' } : {}),
   };
@@ -319,13 +325,24 @@ export default async function handler(request) {
   }
 
   try {
+    if (request.method !== 'GET') {
+      return new Response(
+        JSON.stringify({ error: 'Method not allowed' }),
+        {
+          status: 405,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', Allow: 'GET, OPTIONS' }
+        }
+      );
+    }
+
     // 動態載入營養資料庫
     const nutritionData = await loadNutritionData(request);
 
     // 解析 URL 參數
     const url = new URL(request.url);
-    const query = url.searchParams.get('q') || '';
-    const limit = parseInt(url.searchParams.get('limit') || '10');
+    const query = (url.searchParams.get('q') || '').trim();
+    const parsedLimit = parseInt(url.searchParams.get('limit') || '10', 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 20) : 10;
 
     if (!query) {
       return new Response(
@@ -333,6 +350,16 @@ export default async function handler(request) {
           error: '請提供查詢關鍵字',
           example: '/api/nutrition?q=香蕉'
         }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    if (query.length > 50) {
+      return new Response(
+        JSON.stringify({ error: '查詢關鍵字過長' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -394,7 +421,7 @@ export default async function handler(request) {
 
     return new Response(
       JSON.stringify({
-        error: error.message || 'Internal server error'
+        error: 'Internal server error'
       }),
       {
         status: 500,
