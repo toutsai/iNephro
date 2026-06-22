@@ -6,6 +6,24 @@ const INITIAL_MESSAGE = {
 };
 
 const NON_CACHEABLE_CONFIDENCE = new Set(['safety', 'unavailable']);
+const KNOWLEDGE_UNAVAILABLE_MESSAGE = '目前知識庫服務暫時無法回覆，請稍後再試。若有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。';
+const RATE_LIMIT_MESSAGE = '請求過於頻繁，請稍後再試。若有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。';
+
+export function getChatErrorMessage(error) {
+  if (error?.message === 'TIMEOUT') {
+    return '⏱️ 系統處理時間過長，請稍後再試。您也可以嘗試簡化問題內容。';
+  }
+
+  if (error?.message?.includes('HTTP 429') || error?.message?.includes('請求過於頻繁') || error?.status === 429) {
+    return RATE_LIMIT_MESSAGE;
+  }
+
+  if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+    return '網路連線錯誤，請檢查您的網路連線。';
+  }
+
+  return KNOWLEDGE_UNAVAILABLE_MESSAGE;
+}
 
 export function useChat(speak, onSendCallback) {
   const [messages, setMessages] = useState(() => {
@@ -145,25 +163,13 @@ export function useChat(speak, onSendCallback) {
       console.error('AI 呼叫錯誤:', error);
       removeThinkingMessage();
 
-      let errorMessage = "抱歉，系統發生錯誤。";
+      const errorMessage = getChatErrorMessage(error);
 
-      if (error.message === 'TIMEOUT') {
-        errorMessage = "⏱️ 系統處理時間過長，請稍後再試。您也可以嘗試簡化問題內容。";
-      } else if (error.message?.includes('Knowledge base unavailable') || error.message?.includes('HTTP 503')) {
-        errorMessage = "目前知識庫服務暫時無法回覆，請稍後再試。若有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。";
-      } else if (error.message?.includes('HTTP 429') || error.message?.includes('請求過於頻繁')) {
-        errorMessage = "請求過於頻繁，請稍後再試。若有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。";
-      } else if (error.message?.includes('quota') || error.message?.includes('rate_limit')) {
-        errorMessage = "系統暫時忙碌，請稍後再試。";
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        errorMessage = "網路連線錯誤，請檢查您的網路連線。";
-      } else if (error.status === 429) {
-        errorMessage = "請求過於頻繁，請稍後再試。";
-      } else if (error.status === 401) {
-        errorMessage = "API Key 驗證失敗，請確認 API Key 是否正確。";
-      }
-
-      setMessages(prev => [...prev, { role: 'doctor', text: errorMessage }]);
+      setMessages(prev => [...prev, {
+        role: 'doctor',
+        text: errorMessage,
+        confidence: 'unavailable',
+      }]);
       speak(errorMessage);
     }
   };
