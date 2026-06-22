@@ -13,6 +13,7 @@ import {
 const MAX_QUESTION_LENGTH = 800;
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
 const HOT_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
+const ASSISTANT_RESPONSE_DEADLINE_MS = 18_000;
 const ASSISTANT_UNAVAILABLE_MESSAGE = '目前知識庫服務暫時無法回覆，請稍後再試。若您有胸痛、呼吸困難、昏倒、意識改變、無尿、嚴重水腫、吐血或黑便等急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。';
 const RATE_LIMIT_MESSAGE = '請求過於頻繁，請稍後再試。若您有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。';
 const RED_FLAG_MESSAGE = '您描述的情況可能需要即時醫療評估。請立即聯絡主治醫師、前往急診，或有急迫症狀時撥打 119。本系統無法取代急症評估。';
@@ -187,7 +188,7 @@ function serverTimingHeader(metrics) {
 /**
  * 調用 Assistants API（穩定版 polling，快速間隔）
  */
-async function callAssistantAPI(question, apiKey, assistantId, log = () => {}, metrics = {}) {
+async function callAssistantAPI(question, apiKey, assistantId, log = () => {}, metrics = {}, deadlineAt = Infinity) {
   const client = new OpenAI({ apiKey });
 
   // 1. 建立 Thread + 加入訊息 + 執行（合併減少延遲）
@@ -209,7 +210,14 @@ async function callAssistantAPI(question, apiKey, assistantId, log = () => {}, m
 
   const pollStartedAt = nowMs();
   while (attempts < maxAttempts) {
-    const delay = attempts < 5 ? 300 : 800;
+    const remainingMs = deadlineAt - nowMs();
+    if (remainingMs <= 0) {
+      metrics.poll_total_ms = nowMs() - pollStartedAt;
+      log('assistant_deadline_exceeded', { threadId: thread.id, runId: run.id, attempts }, 'warn');
+      throw new Error('Assistant response deadline exceeded');
+    }
+
+    const delay = Math.min(attempts < 5 ? 300 : 800, remainingMs);
     await new Promise(resolve => setTimeout(resolve, delay));
 
     const runStatus = await retrieveRunStatus(client, thread.id, run.id);
@@ -403,7 +411,14 @@ export default async function handler(request) {
 
       if (ASSISTANT_ID && ASSISTANT_ID.startsWith('asst_')) {
         console.log('📚 使用 Assistants API');
-        result = await callAssistantAPI(trimmedQuestion, OPENAI_KEY, ASSISTANT_ID, log, metrics);
+        result = await callAssistantAPI(
+          trimmedQuestion,
+          OPENAI_KEY,
+          ASSISTANT_ID,
+          log,
+          metrics,
+          requestStartedAt + ASSISTANT_RESPONSE_DEADLINE_MS
+        );
 
         // 標記知識庫來源
         if (result.confidence === 'high' && result.sources.length > 0) {
