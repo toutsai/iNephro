@@ -2,6 +2,13 @@
 // 支援台灣國語語音（最接近台語的選項）
 /* global process */
 
+import {
+  getCorsHeaders,
+  jsonResponse,
+  methodNotAllowedResponse,
+  parseJsonBody,
+} from './_shared/security.js';
+
 // Edge Runtime 配置
 export const config = {
   runtime: 'edge',
@@ -89,37 +96,11 @@ async function generateSpeech(text, voiceId = 'tw-male-1') {
 }
 
 /**
- * CORS origin check
- */
-function getCorsHeaders(request) {
-  const origin = request.headers?.get('origin') || '';
-  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
-    .split(',')
-    .map(value => value.trim())
-    .filter(Boolean);
-  const allowedOrigins = new Set([
-    'https://inephro.vercel.app',
-    ...envOrigins,
-  ]);
-  const allowedLocalPatterns = [
-    /^https?:\/\/localhost(:\d+)?$/,
-    /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
-  ];
-  const isAllowed = allowedOrigins.has(origin) || allowedLocalPatterns.some(pattern => pattern.test(origin));
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : '',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    ...(isAllowed ? { 'Vary': 'Origin' } : {}),
-  };
-}
-
-/**
  * 主處理函式
  */
 export default async function handler(request) {
   // CORS headers
-  const corsHeaders = getCorsHeaders(request);
+  const corsHeaders = getCorsHeaders(request, ['GET', 'POST']);
 
   // 處理 OPTIONS 請求
   if (request.method === 'OPTIONS') {
@@ -141,37 +122,23 @@ export default async function handler(request) {
   }
 
   if (request.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json', Allow: 'GET, POST, OPTIONS' } }
-    );
+    return methodNotAllowedResponse(['GET', 'POST'], corsHeaders);
   }
 
   try {
-    let payload;
-    try {
-      payload = await request.json();
-    } catch {
-      return new Response(
-        JSON.stringify({ error: 'Invalid JSON body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const { data: payload, error: parseError } = await parseJsonBody(request);
+    if (parseError) {
+      return jsonResponse({ error: 'Invalid JSON body' }, 400, corsHeaders);
     }
 
     const { text, voice = 'tw-male-1' } = payload;
 
     if (!text || typeof text !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'Invalid text parameter' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Invalid text parameter' }, 400, corsHeaders);
     }
 
     if (text.length > MAX_TTS_TEXT_LENGTH) {
-      return new Response(
-        JSON.stringify({ error: `Text too long (max ${MAX_TTS_TEXT_LENGTH} characters)` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: `Text too long (max ${MAX_TTS_TEXT_LENGTH} characters)` }, 400, corsHeaders);
     }
 
     console.log(`🎙️ Google TTS: ${text.substring(0, 50)}... (語音: ${voice})`);
@@ -200,12 +167,6 @@ export default async function handler(request) {
       statusCode = 429;
     }
 
-    return new Response(
-      JSON.stringify({ error: 'TTS service unavailable' }),
-      {
-        status: statusCode,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return jsonResponse({ error: 'TTS service unavailable' }, statusCode, corsHeaders);
   }
 }

@@ -3,6 +3,12 @@
 /* global process */
 
 import OpenAI from 'openai';
+import {
+  getCorsHeaders,
+  jsonResponse,
+  methodNotAllowedResponse,
+  parseJsonBody,
+} from './_shared/security.js';
 
 const MAX_QUESTION_LENGTH = 800;
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
@@ -170,32 +176,6 @@ async function callAssistantAPI(question, apiKey, assistantId) {
 }
 
 /**
- * CORS origin check
- */
-function getCorsHeaders(request) {
-  const origin = request.headers?.get('origin') || '';
-  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
-    .split(',')
-    .map(value => value.trim())
-    .filter(Boolean);
-  const allowedOrigins = new Set([
-    'https://inephro.vercel.app',
-    ...envOrigins,
-  ]);
-  const allowedLocalPatterns = [
-    /^https?:\/\/localhost(:\d+)?$/,
-    /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
-  ];
-  const isAllowed = allowedOrigins.has(origin) || allowedLocalPatterns.some(pattern => pattern.test(origin));
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : '',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    ...(isAllowed ? { 'Vary': 'Origin' } : {}),
-  };
-}
-
-/**
  * Rate limiting: 20 requests per minute per IP
  */
 async function checkRateLimit(cache, ip) {
@@ -222,23 +202,12 @@ async function checkRateLimit(cache, ip) {
   }
 }
 
-function jsonResponse(body, status, corsHeaders, extraHeaders = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      'Content-Type': 'application/json',
-      ...extraHeaders,
-    },
-  });
-}
-
 /**
  * 主處理函式
  */
 export default async function handler(request) {
   // CORS headers
-  const corsHeaders = getCorsHeaders(request);
+  const corsHeaders = getCorsHeaders(request, ['POST']);
 
   // 處理 OPTIONS 請求（CORS preflight）
   if (request.method === 'OPTIONS') {
@@ -247,9 +216,7 @@ export default async function handler(request) {
 
   try {
     if (request.method !== 'POST') {
-      return jsonResponse({ error: 'Method not allowed' }, 405, corsHeaders, {
-        Allow: 'POST, OPTIONS',
-      });
+      return methodNotAllowedResponse(['POST'], corsHeaders);
     }
 
     // 1. 初始化 Upstash Redis
@@ -274,10 +241,8 @@ export default async function handler(request) {
     }
 
     // 2. 解析請求
-    let payload;
-    try {
-      payload = await request.json();
-    } catch {
+    const { data: payload, error: parseError } = await parseJsonBody(request);
+    if (parseError) {
       return jsonResponse({ error: 'Invalid JSON body' }, 400, corsHeaders);
     }
 
