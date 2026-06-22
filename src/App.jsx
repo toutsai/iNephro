@@ -125,48 +125,6 @@ function App() {
 
   const lastDoctorText = messages.filter(m => m.role === 'doctor').slice(-1)[0]?.text || '';
   const presenterTopic = presenterTopicKey ? PRESENTER_TOPICS[presenterTopicKey] : null;
-  const presenterPanel = presenterTopic ? (
-    <section className="presenter-panel" aria-label={`${presenterTopic.title} 講解模式`}>
-      <div className="presenter-doctor-stage">
-        <ErrorBoundary fallback={<div className="presenter-fallback">3D 醫師載入失敗</div>}>
-          <React.Suspense fallback={<div className="presenter-fallback">載入中...</div>}>
-            <Doctor3D
-              isSpeaking={isDoctorSpeaking}
-              onStopSpeaking={stopSpeaking}
-              currentText={lastDoctorText}
-            />
-          </React.Suspense>
-        </ErrorBoundary>
-        <div className="presenter-doctor-status">
-          {isDoctorSpeaking ? '講解中' : '待命中'}
-        </div>
-      </div>
-      <div className="presenter-brief">
-        <div className="presenter-toolbar">
-          <span className="presenter-mode-label">講解模式</span>
-          <button className="presenter-close-btn" onClick={() => setPresenterTopicKey(null)}>
-            回到對話
-          </button>
-        </div>
-        <div className="presenter-title-row">
-          <span className="presenter-topic-label">{presenterTopic.label}</span>
-          <h2>{presenterTopic.title}</h2>
-        </div>
-        <p className="presenter-subtitle">{presenterTopic.subtitle}</p>
-        <div className="presenter-step-grid">
-          {presenterTopic.steps.map((step, index) => (
-            <article key={step.title} className="presenter-step-card">
-              <span className="presenter-step-number">{index + 1}</span>
-              <div>
-                <h3>{step.title}</h3>
-                <p>{step.text}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  ) : null;
 
   return (
     <div className="main-container">
@@ -261,11 +219,10 @@ function App() {
         revealedIndex={revealedIndex}
         currentSpeechText={currentSpeechText}
         isSending={isSending}
-        topPanel={presenterPanel}
       />
 
       {/* 右欄：3D 醫師 (桌面版) */}
-      <div className={`right-panel ${presenterTopic ? 'presenter-hidden' : ''}`}>
+      <div className="right-panel">
         <div className="doctor-status">{isDoctorSpeaking ? '🗣️ 解說中... (點擊停止)' : '👂 聆聽中'}</div>
         <div className="doctor-container">
           <ErrorBoundary fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#999',fontSize:'14px'}}>3D 模型載入失敗</div>}>
@@ -279,6 +236,54 @@ function App() {
           </ErrorBoundary>
         </div>
       </div>
+
+      {presenterTopic && (
+        <div className="presenter-modal-layer" role="dialog" aria-modal="false" aria-label={`${presenterTopic.title} 講解模式`}>
+          <div className="presenter-modal-backdrop" />
+          <section className="presenter-modal">
+            <div className="presenter-floating-doctor">
+              <ErrorBoundary fallback={<div className="presenter-fallback">3D 醫師載入失敗</div>}>
+                <React.Suspense fallback={<div className="presenter-fallback">載入中...</div>}>
+                  <Doctor3D
+                    isSpeaking={isDoctorSpeaking}
+                    onStopSpeaking={stopSpeaking}
+                    currentText={lastDoctorText}
+                    presenterMode={true}
+                  />
+                </React.Suspense>
+              </ErrorBoundary>
+              <div className="presenter-doctor-status">
+                {isDoctorSpeaking ? '講解中' : '凝視待命'}
+              </div>
+            </div>
+
+            <div className="presenter-content-stage">
+              <div className="presenter-toolbar">
+                <span className="presenter-mode-label">衛教講解模式</span>
+                <button className="presenter-close-btn" onClick={() => setPresenterTopicKey(null)}>
+                  回到對話
+                </button>
+              </div>
+              <div className="presenter-title-row">
+                <span className="presenter-topic-label">{presenterTopic.label}</span>
+                <h2>{presenterTopic.title}</h2>
+              </div>
+              <p className="presenter-subtitle">{presenterTopic.subtitle}</p>
+              <div className="presenter-flow">
+                {presenterTopic.steps.map((step, index) => (
+                  <article key={step.title} className="presenter-flow-card">
+                    <span className="presenter-step-number">{index + 1}</span>
+                    <div>
+                      <h3>{step.title}</h3>
+                      <p>{step.text}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* 行動版：Tab 面板 (非 chat 時顯示) */}
       {mobileTab === 'nutrition' && (

@@ -1,4 +1,5 @@
 // src/Doctor3D.jsx - 3D 醫師模型（生動動畫版：手勢、眨眼、身體語言）
+/* eslint-disable react-hooks/immutability */
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Environment, ContactShadows } from "@react-three/drei";
@@ -107,7 +108,7 @@ const IDLE_MICRO_GESTURES = [
 ];
 
 // ========== DoctorModel 主元件 ==========
-function DoctorModel({ isSpeaking }) {
+function DoctorModel({ isSpeaking, presenterMode = false }) {
   const { scene } = useGLTF("/doctor.glb");
   const ref = useRef();
 
@@ -207,7 +208,7 @@ function DoctorModel({ isSpeaking }) {
       }
 
       applySpeakingMouth(t);
-      applySpeakingHead(t, state, bones, anim);
+      applySpeakingHead(t, state, bones, anim, presenterMode);
       applySpeakingTorso(t, bones, anim);
       updateSpeakingGesture(dt * 2, anim); // 乘以 2 補償跳幀
       applyGestureBones(anim, bones, true);
@@ -221,7 +222,7 @@ function DoctorModel({ isSpeaking }) {
       }
 
       applyIdleMouth();
-      applyIdleHead(state, bones, anim);
+      applyIdleHead(state, bones, anim, presenterMode);
       applyIdleTorso(t, bones, anim);
       updateIdleGesture(dt * 2, anim);
       applyGestureBones(anim, bones, false);
@@ -286,15 +287,16 @@ function DoctorModel({ isSpeaking }) {
   }
 
   // ========== 說話頭部 ==========
-  function applySpeakingHead(t, state, bones, anim) {
+  function applySpeakingHead(t, state, bones, anim, presenterMode) {
     if (!bones.Head) return;
 
-    const nodX = smoothSin(t, 0.4, 0) * 0.035 + smoothSin(t, 1.2, 1) * 0.015;
-    const turnY = smoothSin(t, 0.3, 2) * 0.07 + smoothSin(t, 0.8, 0.5) * 0.025;
-    const tiltZ = smoothSin(t, 0.25, 1.5) * 0.025;
+    const intensity = presenterMode ? 1.45 : 1;
+    const nodX = (smoothSin(t, 0.4, 0) * 0.035 + smoothSin(t, 1.2, 1) * 0.015) * intensity;
+    const turnY = (smoothSin(t, 0.3, 2) * 0.07 + smoothSin(t, 0.8, 0.5) * 0.025) * intensity;
+    const tiltZ = smoothSin(t, 0.25, 1.5) * 0.025 * intensity;
 
-    const pointerX = (state.pointer?.x || 0) * 0.06;
-    const pointerY = (state.pointer?.y || 0) * 0.03;
+    const pointerX = (state.pointer?.x || 0) * (presenterMode ? 0.12 : 0.06);
+    const pointerY = (state.pointer?.y || 0) * (presenterMode ? 0.055 : 0.03);
 
     bones.Head.rotation.y = lerp(bones.Head.rotation.y, turnY + pointerX, 0.04);
     bones.Head.rotation.x = lerp(bones.Head.rotation.x, anim.headRestX + nodX - pointerY, 0.04);
@@ -417,17 +419,19 @@ function DoctorModel({ isSpeaking }) {
   }
 
   // ========== Idle 頭部 ==========
-  function applyIdleHead(state, bones, anim) {
+  function applyIdleHead(state, bones, anim, presenterMode) {
     if (!bones.Head) return;
     const px = state.pointer?.x || 0;
     const py = state.pointer?.y || 0;
 
-    const targetY = px * 0.2;
-    const targetX = anim.headRestX - py * 0.1;
+    const gaze = presenterMode ? 1.55 : 1;
+    const targetY = px * 0.2 * gaze + (presenterMode ? smoothSin(state.clock.elapsedTime, 0.18, 1) * 0.035 : 0);
+    const targetX = anim.headRestX - py * 0.1 * gaze + (presenterMode ? smoothSin(state.clock.elapsedTime, 0.32, 0) * 0.018 : 0);
+    const targetZ = presenterMode ? smoothSin(state.clock.elapsedTime, 0.22, 2) * 0.018 : 0;
 
-    bones.Head.rotation.y = lerp(bones.Head.rotation.y, targetY, 0.03);
-    bones.Head.rotation.x = lerp(bones.Head.rotation.x, targetX, 0.03);
-    bones.Head.rotation.z = lerp(bones.Head.rotation.z, 0, 0.03);
+    bones.Head.rotation.y = lerp(bones.Head.rotation.y, targetY, presenterMode ? 0.04 : 0.03);
+    bones.Head.rotation.x = lerp(bones.Head.rotation.x, targetX, presenterMode ? 0.04 : 0.03);
+    bones.Head.rotation.z = lerp(bones.Head.rotation.z, targetZ, 0.03);
 
     if (bones.Neck) {
       bones.Neck.rotation.y = lerp(bones.Neck.rotation.y, targetY * 0.12, 0.02);
@@ -442,7 +446,7 @@ function DoctorModel({ isSpeaking }) {
   }
 
   return (
-    <primitive ref={ref} object={scene} scale={3.2} position={[0, BASE_Y, 0]} />
+    <primitive ref={ref} object={scene} scale={presenterMode ? 3.75 : 3.2} position={[0, BASE_Y, 0]} />
   );
 }
 
@@ -476,7 +480,7 @@ function ContextLostHandler({ onContextLost }) {
 }
 
 // ========== 主匯出元件 ==========
-export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false, currentText = '' }) {
+export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false, currentText = '', presenterMode = false }) {
   const keywords = extractKeywords(currentText);
   const [contextKey, setContextKey] = useState(0);
 
@@ -487,7 +491,9 @@ export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false,
 
   const cameraSettings = isMobile
     ? { position: [0, 0.8, 3.5], fov: 26 }
-    : { position: [0, 0.5, 6.5], fov: 25 };
+    : presenterMode
+      ? { position: [0, 0.45, 5.3], fov: 23 }
+      : { position: [0, 0.5, 6.5], fov: 25 };
 
   return (
     <div
@@ -514,7 +520,7 @@ export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false,
         <ContextLostHandler onContextLost={handleContextLost} />
         <ambientLight intensity={2} />
         <Environment preset="city" />
-        <DoctorModel isSpeaking={isSpeaking} />
+        <DoctorModel isSpeaking={isSpeaking} presenterMode={presenterMode} />
         {!isMobile && (
           <ContactShadows opacity={0.4} scale={10} blur={2.5} far={4} position={[0, -5.4, 0]} />
         )}
