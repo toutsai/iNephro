@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import chatHandler, { getAssistantId } from '../../api/chat.js';
+import chatHandler, { getAssistantId, retrieveRunStatus } from '../../api/chat.js';
 import nutritionHandler from '../../api/nutrition.js';
 import ttsGoogleHandler from '../../api/tts-google.js';
 
@@ -21,6 +21,21 @@ describe('chat API safety guards', () => {
     vi.stubEnv('VITE_ASSISTANT_ID', 'asst_legacy');
 
     expect(getAssistantId()).toBe('asst_server');
+  });
+
+  it('retrieves Assistant runs with the current OpenAI SDK parameter order', async () => {
+    const retrieve = vi.fn(async () => ({ status: 'completed' }));
+    const client = {
+      beta: {
+        threads: {
+          runs: { retrieve },
+        },
+      },
+    };
+
+    await retrieveRunStatus(client, 'thread_123', 'run_456');
+
+    expect(retrieve).toHaveBeenCalledWith('run_456', { thread_id: 'thread_123' });
   });
 
   it('blocks red-flag symptoms before calling external services', async () => {

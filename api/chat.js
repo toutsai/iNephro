@@ -131,6 +131,10 @@ export function getAssistantId() {
   return process.env.ASSISTANT_ID || process.env.VITE_ASSISTANT_ID;
 }
 
+export async function retrieveRunStatus(client, threadId, runId) {
+  return client.beta.threads.runs.retrieve(runId, { thread_id: threadId });
+}
+
 /**
  * 調用 Assistants API（穩定版 polling，快速間隔）
  */
@@ -155,7 +159,7 @@ async function callAssistantAPI(question, apiKey, assistantId) {
     const delay = attempts < 5 ? 300 : 800;
     await new Promise(resolve => setTimeout(resolve, delay));
 
-    const runStatus = await client.beta.threads.runs.retrieve(thread.id, run.id);
+    const runStatus = await retrieveRunStatus(client, thread.id, run.id);
 
     if (runStatus.status === 'completed') {
       const messages = await client.beta.threads.messages.list(thread.id);
