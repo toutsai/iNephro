@@ -5,6 +5,7 @@ import ttsGoogleHandler from '../../api/tts-google.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
 
@@ -22,6 +23,15 @@ describe('chat API safety guards', () => {
     expect(body.fromCache).toBe(false);
     expect(body.reply).toContain('急診');
     expect(body.reply).toContain('119');
+  });
+
+  it('allows the production hyphenated origin', async () => {
+    const response = await chatHandler(new Request('https://i-nephro.vercel.app/api/chat', {
+      method: 'OPTIONS',
+      headers: { origin: 'https://i-nephro.vercel.app' },
+    }));
+
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://i-nephro.vercel.app');
   });
 
   it('rejects unsupported methods', async () => {
@@ -51,6 +61,50 @@ describe('chat API safety guards', () => {
     }));
 
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe('');
+  });
+
+  it('fails open when the rate limit backend is unavailable', async () => {
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', 'https://redis.example.com');
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', 'token');
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('Redis unavailable');
+    }));
+
+    const response = await chatHandler(new Request('https://i-nephro.vercel.app/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        origin: 'https://i-nephro.vercel.app',
+        'x-forwarded-for': '203.0.113.10',
+      },
+      body: JSON.stringify({ question: '腎臟病可以吃什麼水果？' }),
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('Knowledge base unavailable');
+    expect(body.reply).toContain('知識庫服務暫時無法回覆');
+  });
+
+  it('returns a displayable message when the rate limit is exceeded', async () => {
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', 'https://redis.example.com');
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', 'token');
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ result: 21 }))));
+
+    const response = await chatHandler(new Request('https://i-nephro.vercel.app/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        origin: 'https://i-nephro.vercel.app',
+        'x-forwarded-for': '203.0.113.10',
+      },
+      body: JSON.stringify({ question: '腎臟病可以吃什麼水果？' }),
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body.reply).toContain('請求過於頻繁');
+    expect(body.confidence).toBe('unavailable');
   });
 });
 

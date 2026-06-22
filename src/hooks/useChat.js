@@ -101,7 +101,7 @@ export function useChat(speak, onSendCallback) {
             speak(errorData.reply);
             return;
           }
-          throw new Error(errorData.error || `HTTP ${response.status}`);
+          throw new Error(`HTTP ${response.status}: ${errorData.error || 'Request failed'}`);
         } else {
           // HTML 錯誤頁面（如 504 Gateway Timeout）
           if (response.status === 504) {
@@ -151,6 +151,8 @@ export function useChat(speak, onSendCallback) {
         errorMessage = "⏱️ 系統處理時間過長，請稍後再試。您也可以嘗試簡化問題內容。";
       } else if (error.message?.includes('Knowledge base unavailable') || error.message?.includes('HTTP 503')) {
         errorMessage = "目前知識庫服務暫時無法回覆，請稍後再試。若有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。";
+      } else if (error.message?.includes('HTTP 429') || error.message?.includes('請求過於頻繁')) {
+        errorMessage = "請求過於頻繁，請稍後再試。若有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。";
       } else if (error.message?.includes('quota') || error.message?.includes('rate_limit')) {
         errorMessage = "系統暫時忙碌，請稍後再試。";
       } else if (error.message?.includes('network') || error.message?.includes('fetch')) {

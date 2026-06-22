@@ -1,6 +1,9 @@
 /* global process */
 
-const DEFAULT_ALLOWED_ORIGINS = ['https://inephro.vercel.app'];
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://i-nephro.vercel.app',
+  'https://inephro.vercel.app',
+];
 const LOCAL_ORIGIN_PATTERNS = [
   /^https?:\/\/localhost(:\d+)?$/,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
