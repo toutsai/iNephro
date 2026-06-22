@@ -1,7 +1,24 @@
 // api/chat.js - Vercel Edge Function with Upstash Redis Cache
 // 雲端快取層，大幅提升速度並降低 API 成本
+/* global process */
 
 import OpenAI from 'openai';
+
+const MAX_QUESTION_LENGTH = 800;
+const CACHE_TTL_SECONDS = 24 * 60 * 60;
+const ASSISTANT_UNAVAILABLE_MESSAGE = '目前知識庫服務暫時無法回覆，請稍後再試。若您有胸痛、呼吸困難、昏倒、意識改變、無尿、嚴重水腫、吐血或黑便等急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。';
+const RED_FLAG_MESSAGE = '您描述的情況可能需要即時醫療評估。請立即聯絡主治醫師、前往急診，或有急迫症狀時撥打 119。本系統無法取代急症評估。';
+const RED_FLAG_PATTERNS = [
+  /胸痛|胸悶.*冒冷汗|冒冷汗.*胸悶/,
+  /呼吸困難|喘不過氣|喘到不能說話|嚴重喘/,
+  /意識改變|意識不清|昏倒|暈倒|失去意識|抽搐|癲癇/,
+  /少尿|無尿|尿不出來/,
+  /嚴重水腫|全身水腫|肺水腫/,
+  /血鉀過高|高血鉀|hyperkalemia/i,
+  /心悸|心跳很亂|心律不整/,
+  /黑便|吐血|咳血|血便/,
+  /嚴重低血壓|血壓很低|休克/,
+];
 
 // Edge Runtime 配置
 export const config = {
@@ -99,6 +116,10 @@ async function generateCacheKey(question) {
   return `qa:${hashHex.slice(0, 32)}`;
 }
 
+function containsRedFlag(question) {
+  return RED_FLAG_PATTERNS.some(pattern => pattern.test(question));
+}
+
 /**
  * 調用 Assistants API（穩定版 polling，快速間隔）
  */
@@ -149,58 +170,26 @@ async function callAssistantAPI(question, apiKey, assistantId) {
 }
 
 /**
- * 降級到 ChatGPT API
- */
-async function fallbackToChatGPT(question, apiKey) {
-  const client = new OpenAI({ apiKey });
-
-  const completion = await client.chat.completions.create({
-    messages: [
-      {
-        role: "system",
-        content: `你是一位台灣腎臟科醫師 iNephro。
-
-【回答規範】
-1. 針對問題解說，字數約 80-100 字。
-2. 語氣專業溫暖，繁體中文。
-3. 關鍵字標示：請務必將「醫學名詞」、「數據」、「食物名稱」用 **粗體** 包起來。
-
-【格式嚴格要求】
-回答結束後，請加上 "///" 符號，接著列出 3 個簡短的建議選項，用 "|" 符號隔開。
-⚠️ 禁止寫 "1. 2. 3." 編號。
-⚠️ 禁止寫 "後續建議：" 這種前言。
-
-正確範例：
-...以上是我的說明。/// 什麼是AKI? | 飲食要注意什麼? | 需要洗腎嗎?`
-      },
-      { role: "user", content: question }
-    ],
-    model: "gpt-4o-mini",
-  });
-
-  return {
-    reply: completion.choices[0].message.content,
-    confidence: 'medium',
-    sources: []
-  };
-}
-
-/**
  * CORS origin check
  */
 function getCorsHeaders(request) {
   const origin = request.headers?.get('origin') || '';
-  const allowedPatterns = [
+  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
+  const allowedOrigins = new Set([
+    'https://inephro.vercel.app',
+    ...envOrigins,
+  ]);
+  const allowedLocalPatterns = [
     /^https?:\/\/localhost(:\d+)?$/,
     /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
-    /^https:\/\/.*\.vercel\.app$/,
-    /^https:\/\/inephro\.vercel\.app$/,
-    /^https:\/\/.*inephro.*\.vercel\.app$/,
   ];
-  const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+  const isAllowed = allowedOrigins.has(origin) || allowedLocalPatterns.some(pattern => pattern.test(origin));
   return {
     'Access-Control-Allow-Origin': isAllowed ? origin : '',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     ...(isAllowed ? { 'Vary': 'Origin' } : {}),
   };
@@ -210,7 +199,7 @@ function getCorsHeaders(request) {
  * Rate limiting: 20 requests per minute per IP
  */
 async function checkRateLimit(cache, ip) {
-  if (!cache) return true; // skip if no cache
+  if (!cache) return true; // local/dev fallback when Redis is not configured
   const key = `ratelimit:${ip}`;
   try {
     const response = await fetch(`${cache.url}/incr/${key}`, {
@@ -229,8 +218,19 @@ async function checkRateLimit(cache, ip) {
     return count <= 20;
   } catch (e) {
     console.warn('Rate limit check failed:', e);
-    return true; // fail open
+    return false;
   }
+}
+
+function jsonResponse(body, status, corsHeaders, extraHeaders = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      ...extraHeaders,
+    },
+  });
 }
 
 /**
@@ -246,6 +246,12 @@ export default async function handler(request) {
   }
 
   try {
+    if (request.method !== 'POST') {
+      return jsonResponse({ error: 'Method not allowed' }, 405, corsHeaders, {
+        Allow: 'POST, OPTIONS',
+      });
+    }
+
     // 1. 初始化 Upstash Redis
     const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
     const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -263,25 +269,41 @@ export default async function handler(request) {
     if (cache) {
       const allowed = await checkRateLimit(cache, clientIP);
       if (!allowed) {
-        return new Response(
-          JSON.stringify({ error: '請求過於頻繁，請稍後再試' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return jsonResponse({ error: '請求暫時無法處理，請稍後再試' }, 503, corsHeaders);
       }
     }
 
     // 2. 解析請求
-    const { question } = await request.json();
+    let payload;
+    try {
+      payload = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON body' }, 400, corsHeaders);
+    }
 
-    if (!question || typeof question !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'Invalid question' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const { question } = payload;
+
+    if (!question || typeof question !== 'string' || !question.trim()) {
+      return jsonResponse({ error: 'Invalid question' }, 400, corsHeaders);
+    }
+
+    const trimmedQuestion = question.trim();
+
+    if (trimmedQuestion.length > MAX_QUESTION_LENGTH) {
+      return jsonResponse({ error: `Question too long (max ${MAX_QUESTION_LENGTH} characters)` }, 400, corsHeaders);
+    }
+
+    if (containsRedFlag(trimmedQuestion)) {
+      return jsonResponse({
+        reply: RED_FLAG_MESSAGE,
+        confidence: 'safety',
+        sources: [],
+        fromCache: false,
+      }, 200, corsHeaders, { 'X-Safety-Guard': 'red-flag' });
     }
 
     // 3. 生成快取鍵
-    const cacheKey = await generateCacheKey(question);
+    const cacheKey = await generateCacheKey(trimmedQuestion);
     console.log(`🔍 查詢快取: ${cacheKey}`);
 
     // 4. 檢查快取（如果已設定）
@@ -319,13 +341,13 @@ export default async function handler(request) {
       throw new Error('OpenAI API Key not configured');
     }
 
-    // 6. 調用 AI（優先 Assistants API，失敗則降級）
+    // 6. 調用 AI（僅 Assistants API；失敗時不降級為一般醫療建議）
     let result;
 
     try {
       if (ASSISTANT_ID && ASSISTANT_ID.startsWith('asst_')) {
         console.log('📚 使用 Assistants API');
-        result = await callAssistantAPI(question, OPENAI_KEY, ASSISTANT_ID);
+        result = await callAssistantAPI(trimmedQuestion, OPENAI_KEY, ASSISTANT_ID);
 
         // 標記知識庫來源
         if (result.confidence === 'high' && result.sources.length > 0) {
@@ -335,20 +357,25 @@ export default async function handler(request) {
         throw new Error('Assistant ID not configured');
       }
     } catch (error) {
-      console.warn('⚠️ Assistants API 失敗，降級到 ChatGPT:', error.message);
-      result = await fallbackToChatGPT(question, OPENAI_KEY);
+      console.warn('⚠️ Assistants API 失敗:', error.message);
+      return jsonResponse({
+        error: 'Knowledge base unavailable',
+        reply: ASSISTANT_UNAVAILABLE_MESSAGE,
+        confidence: 'unavailable',
+        sources: [],
+        fromCache: false,
+      }, 503, corsHeaders);
     }
 
-    // 7. 存入快取（30 天過期，2592000 秒）
+    // 7. 存入快取（24 小時過期；不保存原始醫療問題）
     const cacheData = {
       ...result,
       timestamp: Date.now(),
-      question // 保留原始問題，方便管理
     };
 
     if (cache) {
-      await cache.set(cacheKey, cacheData, 30 * 24 * 60 * 60); // 30 天
-      console.log('💾 已存入快取（30天有效期）');
+      await cache.set(cacheKey, cacheData, CACHE_TTL_SECONDS);
+      console.log('💾 已存入快取（24小時有效期）');
     } else {
       console.log('⚠️ 快取未啟用，跳過快取存儲');
     }
@@ -371,7 +398,7 @@ export default async function handler(request) {
 
     return new Response(
       JSON.stringify({
-        error: error.message || 'Internal server error',
+        error: 'Internal server error',
         fromCache: false
       }),
       {

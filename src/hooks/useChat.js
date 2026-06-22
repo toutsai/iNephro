@@ -40,7 +40,7 @@ export function useChat(speak, onSendCallback) {
 
     // === 第一層快取：localStorage（最快，0ms）===
     const CACHE_KEY_PREFIX = 'inephro_cache_';
-    const CACHE_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30天過期
+    const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24小時過期
 
     const getCacheKey = (prompt) => {
       return CACHE_KEY_PREFIX + btoa(encodeURIComponent(prompt));
@@ -133,10 +133,10 @@ export function useChat(speak, onSendCallback) {
 
       if (error.message === 'TIMEOUT') {
         errorMessage = "⏱️ 系統處理時間過長，請稍後再試。您也可以嘗試簡化問題內容。";
-      } else if (error.message?.includes('API key')) {
-        errorMessage = "API Key 無效，請檢查您的設定。";
+      } else if (error.message?.includes('Knowledge base unavailable') || error.message?.includes('HTTP 503')) {
+        errorMessage = "目前知識庫服務暫時無法回覆，請稍後再試。若有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。";
       } else if (error.message?.includes('quota') || error.message?.includes('rate_limit')) {
-        errorMessage = "API 使用額度已達上限，請稍後再試或檢查您的 OpenAI 帳戶。";
+        errorMessage = "系統暫時忙碌，請稍後再試。";
       } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
         errorMessage = "網路連線錯誤，請檢查您的網路連線。";
       } else if (error.status === 429) {
