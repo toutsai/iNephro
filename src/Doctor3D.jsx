@@ -167,7 +167,7 @@ function DoctorModel({ isSpeaking, presenterMode = false }) {
     }
   }, [scene]);
 
-  const BASE_Y = -5.3;
+  const BASE_Y = presenterMode ? -5.65 : -5.3;
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
@@ -492,7 +492,7 @@ export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false,
   const cameraSettings = isMobile
     ? { position: [0, 0.8, 3.5], fov: 26 }
     : presenterMode
-      ? { position: [0, 1.05, 5.85], fov: 24 }
+      ? { position: [0, 1.55, 6.2], fov: 24 }
       : { position: [0, 0.5, 6.5], fov: 25 };
 
   return (
