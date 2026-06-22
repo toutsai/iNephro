@@ -48,6 +48,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
   assistantMock.reply = '這是知識庫測試回覆。';
   assistantMock.annotations = [{ type: 'file_citation', text: 'citation' }];
   assistantMock.status = 'completed';
@@ -230,6 +231,24 @@ describe('chat API smoke coverage', () => {
     expect(body.confidence).toBe('safety');
     expect(body.reply).toContain('急診');
     expect(body.reply).toContain('119');
+  });
+
+  it('returns JSON before the platform times out when Assistant polling is too slow', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('OPENAI_API_KEY', 'sk-test');
+    vi.stubEnv('ASSISTANT_ID', 'asst_test');
+    assistantMock.status = 'queued';
+
+    const responsePromise = postChat('請說明慢性腎臟病(CKD)的五個分期是什麼？');
+    await vi.advanceTimersByTimeAsync(19_000);
+
+    const response = await responsePromise;
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('Knowledge base unavailable');
+    expect(body.reply).toContain('知識庫服務暫時無法回覆');
+    expect(response.headers.get('Server-Timing')).toContain('poll_total_ms');
   });
 });
 
