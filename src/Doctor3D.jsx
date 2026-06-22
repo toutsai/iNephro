@@ -446,7 +446,7 @@ function DoctorModel({ isSpeaking, presenterMode = false }) {
   }
 
   return (
-    <primitive ref={ref} object={scene} scale={presenterMode ? 3.75 : 3.2} position={[0, BASE_Y, 0]} />
+    <primitive ref={ref} object={scene} scale={presenterMode ? 3.45 : 3.2} position={[0, BASE_Y, 0]} />
   );
 }
 
@@ -492,7 +492,7 @@ export default function Doctor3D({ isSpeaking, onStopSpeaking, isMobile = false,
   const cameraSettings = isMobile
     ? { position: [0, 0.8, 3.5], fov: 26 }
     : presenterMode
-      ? { position: [0, 0.45, 5.3], fov: 23 }
+      ? { position: [0, 1.05, 5.85], fov: 24 }
       : { position: [0, 0.5, 6.5], fov: 25 };
 
   return (
