@@ -10,6 +10,43 @@ afterEach(() => {
 });
 
 describe('useChat error handling', () => {
+  it('disables sending while a chat request is in flight', async () => {
+    let resolveFetch;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(resolve => {
+      resolveFetch = resolve;
+    })));
+    const speak = vi.fn();
+    const { result } = renderHook(() => useChat(speak));
+
+    await act(async () => {
+      result.current.handleSend('蛋白尿是什麼？');
+    });
+
+    expect(result.current.isSending).toBe(true);
+    expect(result.current.messages.filter(message => message.role === 'patient')).toHaveLength(1);
+
+    await act(async () => {
+      result.current.handleSend('慢性腎臟病是什麼？');
+    });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(result.current.messages.filter(message => message.role === 'patient')).toHaveLength(1);
+
+    await act(async () => {
+      resolveFetch(new Response(JSON.stringify({
+        reply: '蛋白尿代表尿液中有過多蛋白質。',
+        confidence: 'medium',
+        sources: [],
+        fromCache: false,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSending).toBe(false);
+      expect(result.current.messages.at(-1).text).toContain('蛋白尿代表');
+    });
+  });
+
   it('maps unknown chat failures to a displayable unavailable state', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(
       JSON.stringify({ error: 'Invalid question' }),

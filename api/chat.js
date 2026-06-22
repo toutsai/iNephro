@@ -12,6 +12,7 @@ import {
 
 const MAX_QUESTION_LENGTH = 800;
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
+const HOT_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 const ASSISTANT_UNAVAILABLE_MESSAGE = '目前知識庫服務暫時無法回覆，請稍後再試。若您有胸痛、呼吸困難、昏倒、意識改變、無尿、嚴重水腫、吐血或黑便等急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。';
 const RATE_LIMIT_MESSAGE = '請求過於頻繁，請稍後再試。若您有急迫症狀，請立即聯絡主治醫師、前往急診，或撥打 119。';
 const RED_FLAG_MESSAGE = '您描述的情況可能需要即時醫療評估。請立即聯絡主治醫師、前往急診，或有急迫症狀時撥打 119。本系統無法取代急症評估。';
@@ -25,6 +26,16 @@ const RED_FLAG_PATTERNS = [
   /心悸|心跳很亂|心律不整/,
   /黑便|吐血|咳血|血便/,
   /嚴重低血壓|血壓很低|休克/,
+];
+const HOT_CACHE_PATTERNS = [
+  /急性腎損傷|AKI/i,
+  /慢性腎臟病|CKD/i,
+  /血液透析|洗腎/,
+  /腹膜透析/,
+  /蛋白尿|泡沫尿/,
+  /腎絲球過濾率|eGFR/i,
+  /高血鉀|血鉀過高|hyperkalemia/i,
+  /低蛋白飲食|低鈉飲食|低鉀飲食|低磷飲食/,
 ];
 
 // Edge Runtime 配置
@@ -127,6 +138,12 @@ function containsRedFlag(question) {
   return RED_FLAG_PATTERNS.some(pattern => pattern.test(question));
 }
 
+export function getCacheTtlSeconds(question) {
+  return HOT_CACHE_PATTERNS.some(pattern => pattern.test(question))
+    ? HOT_CACHE_TTL_SECONDS
+    : CACHE_TTL_SECONDS;
+}
+
 export function getAssistantId() {
   return process.env.ASSISTANT_ID || process.env.VITE_ASSISTANT_ID;
 }
@@ -135,34 +152,72 @@ export async function retrieveRunStatus(client, threadId, runId) {
   return client.beta.threads.runs.retrieve(runId, { thread_id: threadId });
 }
 
+function createChatLogger(requestId) {
+  return (stage, details = {}, level = 'log') => {
+    const payload = {
+      event: 'chat_api',
+      requestId,
+      stage,
+      ...details,
+    };
+    console[level](JSON.stringify(payload));
+  };
+}
+
+function nowMs() {
+  return Math.round(typeof performance !== 'undefined' ? performance.now() : Date.now());
+}
+
+async function timeAsync(metrics, key, callback) {
+  const startedAt = nowMs();
+  try {
+    return await callback();
+  } finally {
+    metrics[key] = nowMs() - startedAt;
+  }
+}
+
+function serverTimingHeader(metrics) {
+  return Object.entries(metrics)
+    .filter(([, value]) => Number.isFinite(value))
+    .map(([key, value]) => `${key};dur=${value}`)
+    .join(', ');
+}
+
 /**
  * 調用 Assistants API（穩定版 polling，快速間隔）
  */
-async function callAssistantAPI(question, apiKey, assistantId) {
+async function callAssistantAPI(question, apiKey, assistantId, log = () => {}, metrics = {}) {
   const client = new OpenAI({ apiKey });
 
   // 1. 建立 Thread + 加入訊息 + 執行（合併減少延遲）
-  const thread = await client.beta.threads.create();
-  await client.beta.threads.messages.create(thread.id, {
+  const thread = await timeAsync(metrics, 'create_thread_ms', () => client.beta.threads.create());
+  log('create_thread', { threadId: thread.id });
+  await timeAsync(metrics, 'create_message_ms', () => client.beta.threads.messages.create(thread.id, {
     role: 'user',
     content: question
-  });
-  const run = await client.beta.threads.runs.create(thread.id, {
+  }));
+  log('create_message', { threadId: thread.id });
+  const run = await timeAsync(metrics, 'create_run_ms', () => client.beta.threads.runs.create(thread.id, {
     assistant_id: assistantId
-  });
+  }));
+  log('create_run', { threadId: thread.id, runId: run.id });
 
   // 2. 快速 polling（前 5 次 300ms，之後 800ms，最多 25 秒）
   let attempts = 0;
   const maxAttempts = 35;
 
+  const pollStartedAt = nowMs();
   while (attempts < maxAttempts) {
     const delay = attempts < 5 ? 300 : 800;
     await new Promise(resolve => setTimeout(resolve, delay));
 
     const runStatus = await retrieveRunStatus(client, thread.id, run.id);
+    log('poll_run', { threadId: thread.id, runId: run.id, status: runStatus.status, attempts: attempts + 1 });
 
     if (runStatus.status === 'completed') {
-      const messages = await client.beta.threads.messages.list(thread.id);
+      metrics.poll_total_ms = nowMs() - pollStartedAt;
+      const messages = await timeAsync(metrics, 'retrieve_messages_ms', () => client.beta.threads.messages.list(thread.id));
       const assistantMessage = messages.data.find(
         msg => msg.role === 'assistant' && msg.run_id === run.id
       );
@@ -171,16 +226,30 @@ async function callAssistantAPI(question, apiKey, assistantId) {
       const reply = assistantMessage.content[0].text.value;
       const annotations = assistantMessage.content[0].text.annotations || [];
       const confidence = annotations.length > 0 ? 'high' : 'medium';
+      log('retrieve_messages', {
+        threadId: thread.id,
+        runId: run.id,
+        messageCount: messages.data.length,
+        annotationCount: annotations.length,
+      });
       return { reply, confidence, sources: annotations };
     }
 
     if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
+      log('run_terminal_failure', {
+        threadId: thread.id,
+        runId: run.id,
+        status: runStatus.status,
+        error: runStatus.last_error?.message || 'Unknown error',
+      }, 'warn');
       throw new Error(`Run failed: ${runStatus.last_error?.message || 'Unknown error'}`);
     }
 
     attempts++;
   }
 
+  metrics.poll_total_ms = nowMs() - pollStartedAt;
+  log('run_timeout', { threadId: thread.id, runId: run.id, attempts }, 'warn');
   throw new Error('Run timeout');
 }
 
@@ -217,6 +286,10 @@ async function checkRateLimit(cache, ip) {
 export default async function handler(request) {
   // CORS headers
   const corsHeaders = getCorsHeaders(request, ['POST']);
+  const requestId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const log = createChatLogger(requestId);
+  const metrics = {};
+  const requestStartedAt = nowMs();
 
   // 處理 OPTIONS 請求（CORS preflight）
   if (request.method === 'OPTIONS') {
@@ -270,7 +343,7 @@ export default async function handler(request) {
     // Rate limiting. Red-flag safety guidance is returned before this guard.
     const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     if (cache) {
-      const allowed = await checkRateLimit(cache, clientIP);
+      const allowed = await timeAsync(metrics, 'rate_limit_ms', () => checkRateLimit(cache, clientIP));
       if (!allowed) {
         return jsonResponse({
           error: 'Rate limit exceeded',
@@ -283,17 +356,19 @@ export default async function handler(request) {
     }
 
     // 3. 生成快取鍵
-    const cacheKey = await generateCacheKey(trimmedQuestion);
+    const cacheKey = await timeAsync(metrics, 'cache_key_ms', () => generateCacheKey(trimmedQuestion));
     console.log(`🔍 查詢快取: ${cacheKey}`);
 
     // 4. 檢查快取（如果已設定）
     let cached = null;
     if (cache) {
-      cached = await cache.get(cacheKey);
+      cached = await timeAsync(metrics, 'cache_lookup_ms', () => cache.get(cacheKey));
     }
 
     if (cached) {
       console.log('✅ 快取命中！');
+      metrics.total_ms = nowMs() - requestStartedAt;
+      log('complete', { cache: 'hit', metrics });
       return new Response(
         JSON.stringify({
           ...cached,
@@ -305,7 +380,8 @@ export default async function handler(request) {
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
-            'X-Cache': 'HIT'
+            'X-Cache': 'HIT',
+            'Server-Timing': serverTimingHeader(metrics)
           }
         }
       );
@@ -327,7 +403,7 @@ export default async function handler(request) {
 
       if (ASSISTANT_ID && ASSISTANT_ID.startsWith('asst_')) {
         console.log('📚 使用 Assistants API');
-        result = await callAssistantAPI(trimmedQuestion, OPENAI_KEY, ASSISTANT_ID);
+        result = await callAssistantAPI(trimmedQuestion, OPENAI_KEY, ASSISTANT_ID, log, metrics);
 
         // 標記知識庫來源
         if (result.confidence === 'high' && result.sources.length > 0) {
@@ -338,13 +414,15 @@ export default async function handler(request) {
       }
     } catch (error) {
       console.warn('⚠️ Assistants API 失敗:', error.message);
+      metrics.total_ms = nowMs() - requestStartedAt;
+      log('assistant_unavailable', { error: error.message, metrics }, 'warn');
       return jsonResponse({
         error: 'Knowledge base unavailable',
         reply: ASSISTANT_UNAVAILABLE_MESSAGE,
         confidence: 'unavailable',
         sources: [],
         fromCache: false,
-      }, 503, corsHeaders);
+      }, 503, corsHeaders, { 'Server-Timing': serverTimingHeader(metrics) });
     }
 
     // 7. 存入快取（24 小時過期；不保存原始醫療問題）
@@ -354,13 +432,16 @@ export default async function handler(request) {
     };
 
     if (cache) {
-      await cache.set(cacheKey, cacheData, CACHE_TTL_SECONDS);
-      console.log('💾 已存入快取（24小時有效期）');
+      const cacheTtlSeconds = getCacheTtlSeconds(trimmedQuestion);
+      await timeAsync(metrics, 'cache_set_ms', () => cache.set(cacheKey, cacheData, cacheTtlSeconds));
+      console.log(`💾 已存入快取（${Math.round(cacheTtlSeconds / 86400)}天有效期）`);
     } else {
       console.log('⚠️ 快取未啟用，跳過快取存儲');
     }
 
     // 8. 回傳結果
+    metrics.total_ms = nowMs() - requestStartedAt;
+    log('complete', { cache: 'miss', metrics });
     return new Response(
       JSON.stringify({ ...result, fromCache: false }),
       {
@@ -368,7 +449,8 @@ export default async function handler(request) {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json',
-          'X-Cache': 'MISS'
+          'X-Cache': 'MISS',
+          'Server-Timing': serverTimingHeader(metrics)
         }
       }
     );

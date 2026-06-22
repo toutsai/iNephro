@@ -10,6 +10,7 @@ function Sidebar({
   setNutritionQuery,
   handleNutritionSearch,
   isSearchingNutrition,
+  isSending,
   onShowEGFR,
   onClearMessages,
   fontSize,
@@ -26,8 +27,10 @@ function Sidebar({
       {Object.keys(TOPIC_DATA).map(key => (
         <div
           key={key}
-          className={`menu-item compact ${activeCategory === key ? 'active' : ''}`}
+          className={`menu-item compact ${activeCategory === key ? 'active' : ''} ${isSending ? 'disabled' : ''}`}
           onClick={() => handleMenuClick(key)}
+          title={TOPIC_DATA[key].prompt}
+          aria-disabled={isSending}
         >
           ⭐ {TOPIC_DATA[key].title}
         </div>
@@ -68,8 +71,10 @@ function Sidebar({
       {randomTopics.map((keyword, index) => (
         <div
           key={index}
-          className={`menu-item compact ${activeCategory === keyword ? 'active' : ''}`}
+          className={`menu-item compact ${activeCategory === keyword ? 'active' : ''} ${isSending ? 'disabled' : ''}`}
           onClick={() => handleMenuClick(keyword)}
+          title={`請詳細介紹關於「${keyword}」的腎臟科衛教知識`}
+          aria-disabled={isSending}
         >
           📄 {keyword}
         </div>
