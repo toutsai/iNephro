@@ -127,6 +127,10 @@ function containsRedFlag(question) {
   return RED_FLAG_PATTERNS.some(pattern => pattern.test(question));
 }
 
+export function getAssistantId() {
+  return process.env.ASSISTANT_ID || process.env.VITE_ASSISTANT_ID;
+}
+
 /**
  * 調用 Assistants API（穩定版 polling，快速間隔）
  */
@@ -307,7 +311,7 @@ export default async function handler(request) {
 
     // 5. 從環境變數取得設定（後端專用，不會暴露到前端）
     const OPENAI_KEY = process.env.OPENAI_API_KEY;
-    const ASSISTANT_ID = process.env.ASSISTANT_ID;
+    const ASSISTANT_ID = getAssistantId();
 
     // 6. 調用 AI（僅 Assistants API；失敗時不降級為一般醫療建議）
     let result;
