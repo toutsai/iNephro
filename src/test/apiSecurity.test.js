@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import chatHandler from '../../api/chat.js';
+import chatHandler, { getAssistantId } from '../../api/chat.js';
 import nutritionHandler from '../../api/nutrition.js';
 import ttsGoogleHandler from '../../api/tts-google.js';
 
@@ -10,6 +10,19 @@ afterEach(() => {
 });
 
 describe('chat API safety guards', () => {
+  it('supports the legacy VITE_ASSISTANT_ID deployment variable', () => {
+    vi.stubEnv('VITE_ASSISTANT_ID', 'asst_legacy');
+
+    expect(getAssistantId()).toBe('asst_legacy');
+  });
+
+  it('prefers ASSISTANT_ID over the legacy VITE_ASSISTANT_ID variable', () => {
+    vi.stubEnv('ASSISTANT_ID', 'asst_server');
+    vi.stubEnv('VITE_ASSISTANT_ID', 'asst_legacy');
+
+    expect(getAssistantId()).toBe('asst_server');
+  });
+
   it('blocks red-flag symptoms before calling external services', async () => {
     const response = await chatHandler(new Request('https://inephro.vercel.app/api/chat', {
       method: 'POST',
