@@ -5,6 +5,8 @@ const INITIAL_MESSAGE = {
   text: '您好！請點選下方主題，或直接問我腎臟相關問題。\n\n⚠️ 本系統為衛教輔助工具，非醫療診斷服務。所有資訊僅供參考，請遵循您的主治醫師建議。',
 };
 
+const NON_CACHEABLE_CONFIDENCE = new Set(['safety', 'unavailable']);
+
 export function useChat(speak, onSendCallback) {
   const [messages, setMessages] = useState(() => {
     try {
@@ -53,7 +55,9 @@ export function useChat(speak, onSendCallback) {
         const { reply, timestamp, confidence } = JSON.parse(cached);
         const age = Date.now() - timestamp;
 
-        if (age < CACHE_EXPIRY) {
+        if (NON_CACHEABLE_CONFIDENCE.has(confidence)) {
+          localStorage.removeItem(cacheKey);
+        } else if (age < CACHE_EXPIRY) {
           console.log('⚡ localStorage 快取命中（0ms）');
           removeThinkingMessage();
           setMessages(prev => [...prev, { role: 'doctor', text: reply, confidence }]);
@@ -87,6 +91,16 @@ export function useChat(speak, onSendCallback) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
+          if (errorData.reply) {
+            removeThinkingMessage();
+            setMessages(prev => [...prev, {
+              role: 'doctor',
+              text: errorData.reply,
+              confidence: errorData.confidence || 'unavailable',
+            }]);
+            speak(errorData.reply);
+            return;
+          }
           throw new Error(errorData.error || `HTTP ${response.status}`);
         } else {
           // HTML 錯誤頁面（如 504 Gateway Timeout）
@@ -112,15 +126,17 @@ export function useChat(speak, onSendCallback) {
       setMessages(prev => [...prev, { role: 'doctor', text: reply, confidence }]);
       speak(reply);
 
-      // 存入 localStorage 作為第一層快取
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify({
-          reply,
-          confidence,
-          timestamp: Date.now()
-        }));
-      } catch (e) {
-        console.warn('localStorage 存儲失敗:', e);
+      // 安全警示與服務不可用訊息不進本機快取，避免錯誤情境被重播。
+      if (!NON_CACHEABLE_CONFIDENCE.has(confidence)) {
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            reply,
+            confidence,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.warn('localStorage 存儲失敗:', e);
+        }
       }
 
       return;

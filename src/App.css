@@ -32,6 +32,12 @@
   --msg-patient-bg-solid: #60a5fa;
   --msg-doctor-bg: #ffffff;
   --msg-doctor-border: rgba(96, 165, 250, 0.12);
+  --msg-safety-bg: #fff7f7;
+  --msg-safety-border: #dc2626;
+  --msg-safety-label: #991b1b;
+  --msg-unavailable-bg: #fffbeb;
+  --msg-unavailable-border: #d97706;
+  --msg-unavailable-label: #92400e;
   --shadow-light: rgba(96, 165, 250, 0.06);
   --shadow-medium: 0 4px 20px rgba(96, 165, 250, 0.10);
   --shadow-elevated: 0 8px 32px rgba(96, 165, 250, 0.15);
@@ -63,6 +69,12 @@
   --msg-patient-bg-solid: #2563eb;
   --msg-doctor-bg: #1a2836;
   --msg-doctor-border: rgba(255,255,255,0.06);
+  --msg-safety-bg: #331b24;
+  --msg-safety-border: #f87171;
+  --msg-safety-label: #fecaca;
+  --msg-unavailable-bg: #312917;
+  --msg-unavailable-border: #fbbf24;
+  --msg-unavailable-label: #fde68a;
   --shadow-light: rgba(0,0,0,0.15);
   --shadow-medium: 0 4px 20px rgba(0,0,0,0.3);
   --shadow-elevated: 0 8px 32px rgba(0,0,0,0.4);
@@ -260,6 +272,40 @@ body {
   color: var(--text-primary);
   border-top-left-radius: 2px;
   border-left: 3px solid var(--accent);
+}
+
+.message.doctor.message-safety {
+  background: var(--msg-safety-bg);
+  border-color: rgba(220, 38, 38, 0.22);
+  border-left-color: var(--msg-safety-border);
+}
+
+.message.doctor.message-unavailable {
+  background: var(--msg-unavailable-bg);
+  border-color: rgba(217, 119, 6, 0.24);
+  border-left-color: var(--msg-unavailable-border);
+}
+
+.message-status-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  margin-bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.message-safety .message-status-label {
+  color: var(--msg-safety-label);
+}
+
+.message-unavailable .message-status-label {
+  color: var(--msg-unavailable-label);
 }
 
 /* 病患氣泡顏色 */
