@@ -4,7 +4,12 @@
  * 功能：查詢食物營養成分（鈉、鉀、磷、鈣、鎂等）
  * 資料來源：衛生福利部食品藥物管理署 - 食品營養成分資料庫
  */
-/* global process */
+
+import {
+  getCorsHeaders,
+  jsonResponse,
+  methodNotAllowedResponse,
+} from './_shared/security.js';
 
 // Edge Runtime 配置
 export const config = {
@@ -287,37 +292,11 @@ function getKidneyWarnings(food) {
 }
 
 /**
- * CORS origin check
- */
-function getCorsHeaders(request) {
-  const origin = request.headers?.get('origin') || '';
-  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
-    .split(',')
-    .map(value => value.trim())
-    .filter(Boolean);
-  const allowedOrigins = new Set([
-    'https://inephro.vercel.app',
-    ...envOrigins,
-  ]);
-  const allowedLocalPatterns = [
-    /^https?:\/\/localhost(:\d+)?$/,
-    /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
-  ];
-  const isAllowed = allowedOrigins.has(origin) || allowedLocalPatterns.some(pattern => pattern.test(origin));
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : '',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    ...(isAllowed ? { 'Vary': 'Origin' } : {}),
-  };
-}
-
-/**
  * 主處理函式
  */
 export default async function handler(request) {
   // CORS headers
-  const corsHeaders = getCorsHeaders(request);
+  const corsHeaders = getCorsHeaders(request, ['GET']);
 
   // 處理 OPTIONS 請求
   if (request.method === 'OPTIONS') {
@@ -326,13 +305,7 @@ export default async function handler(request) {
 
   try {
     if (request.method !== 'GET') {
-      return new Response(
-        JSON.stringify({ error: 'Method not allowed' }),
-        {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json', Allow: 'GET, OPTIONS' }
-        }
-      );
+      return methodNotAllowedResponse(['GET'], corsHeaders);
     }
 
     // 動態載入營養資料庫
@@ -358,13 +331,7 @@ export default async function handler(request) {
     }
 
     if (query.length > 50) {
-      return new Response(
-        JSON.stringify({ error: '查詢關鍵字過長' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      return jsonResponse({ error: '查詢關鍵字過長' }, 400, corsHeaders);
     }
 
     // 擴展搜尋關鍵字（包含俗名對照）
@@ -419,17 +386,6 @@ export default async function handler(request) {
   } catch (error) {
     console.error('❌ Nutrition API 錯誤:', error);
 
-    return new Response(
-      JSON.stringify({
-        error: 'Internal server error'
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    return jsonResponse({ error: 'Internal server error' }, 500, corsHeaders);
   }
 }
