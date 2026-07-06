@@ -44,8 +44,7 @@ context 塞爆。照規則走：3 個檔案以上的理解工作就外包。
    harness session 級指令 > CLAUDE.md > docs/claude/*；衝突本身記入
    LESSONS。
 
-## 交接：本次 session 未完成事項
-- （若收尾時有未完成項，寫在這裡；目前為空。）
+## 交接（未來 session 若有未完成項，也追加寫在本節）
 - 舊 CLAUDE.md 的待辦仍然有效，見 CLAUDE.md「已知問題／待辦」。
 - 根目錄 9 個歷史 .md（SETUP/GUIDE/PLAN 類）未整併——內容可能部分過時，
   將來若整理，先問使用者再移動（涉及刪改結構）。

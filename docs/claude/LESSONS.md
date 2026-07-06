@@ -1,4 +1,4 @@
-# LESSONS：踩坑教訓（append-only，格式見 40-MAINTENANCE.md）
+# LESSONS：踩坑教訓（平時只追加；達 40-MAINTENANCE.md 精簡門檻時依該檔規則合併/刪減。格式見 40-MAINTENANCE.md）
 
 ## 2026-07-06 | CLAUDE.md 的行數與進度描述已腐化，照著做會改錯位置
 - 根因：文件寫死了會變動的事實（檔案行數、「最新」進度），沒人負責更新。

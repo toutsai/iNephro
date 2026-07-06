@@ -19,21 +19,24 @@
 | 踩坑之後 | 把教訓寫進 `docs/claude/LESSONS.md`（格式見 40） |
 
 ## 任務分級（取代舊的「每需求派 2-3 agent 分析」）
-先判級再動手，判準取「最嚴重」的一項：
-- **S 級**（≤2 個檔案、不碰 api/、不碰醫療內容、改法明顯）：直接做。不派分析
-  agent、不寫 plan 檔。例：改按鈕文字、調 CSS 間距、修 typo。
-- **M 級**（3–8 個檔案、或碰 api/、或需要先搞懂現有機制）：先派 1 個 Explore
-  agent 摸清現況，在對話中列出改動計畫（檔案+改法，不必寫 plan 檔），然後實作。
-- **L 級**（跨架構、碰醫療內容/安全機制/資料流、或使用者明說「重構/大改」）：
-  派 2 個分析 agent（技術可行性、UX+無障礙），計畫寫成檔案放
+先判級再動手。判級順序：先驗 L，再驗 S，都不是就是 M（不會有無級可判的情況）：
+- **L 級**（任一成立）：跨架構、碰醫療內容/安全機制/資料流、或使用者明說
+  「重構/大改」→ 派 2 個分析 agent（技術可行性、UX+無障礙），計畫寫成檔案放
   `docs/claude/plans/`（不要放根目錄），**等使用者確認後才實作**。
+- **S 級**（全部成立）：≤2 個檔案、不碰 api/、不碰醫療內容、改法明顯 →
+  直接做。不派分析 agent、不寫 plan 檔。例：改按鈕文字、調 CSS 間距、修 typo。
+- **M 級**：其餘一切（例：3 個以上檔案的機械修改、碰 api/、需要先搞懂現有
+  機制）→ 先派 1 個 Explore agent 摸清現況，在對話中列出改動計畫
+  （檔案+改法，不必寫 plan 檔），然後實作。
 
 ## 驗證與交付（所有等級通用）
 1. commit 前必跑：`npx vite build && npx vitest run`，任一失敗不准 commit。
-2. M/L 級變更 commit 前，派 fresh-context agent 依驗收條件覆核（見 10-DISPATCH「驗證不自驗」）。
+2. M/L 級變更在**整個任務收尾、最後一次 push 前**派 fresh-context agent 依
+   驗收條件覆核一次（見 10-DISPATCH「驗證不自驗」）；中途的單元 commit 只需
+   第 1 條的機器驗。
 3. 隨做隨 commit：每完成一個獨立單元就 commit+push，不要攢到最後。
 
-## 分支與部署（按環境分流，兩者衝突時以本節為準）
+## 分支與部署（本節與其他任何檔案——含 docs/claude/*——衝突時，以本節為準；harness 的 session 級指令又優先於本節）
 - **遠端/網頁 session**（harness 有指定 `claude/...` 分支）：只 push 該分支，
   開 draft PR。**不得 push master**。
 - **本機 CLI session**（harness 未指定分支）：使用者已授權合併到 master 並
@@ -48,7 +51,7 @@
 | 檔案 | 用途 |
 |------|------|
 | `src/App.jsx` | 主元件組合器 |
-| `src/App.css` | 全部樣式（**大檔 ~2000 行**，CSS Variables 主題系統）|
+| `src/App.css` | 全部樣式（**大檔**，CSS Variables 主題系統）|
 | `src/Doctor3D.jsx` | 3D 醫師（目光跟隨 + morph targets，**大檔**）|
 | `src/components/` | ChatArea, Sidebar, EGFRCalculator, NutritionModal, NutritionResult, ErrorBoundary |
 | `src/hooks/` | useChat（對話+快取）, useSpeech（TTS+語音輸入）, useNutrition |
@@ -61,8 +64,9 @@
 | `vercel.json` | 部署設定（CSP + 快取標頭 + cron）|
 | `public/doctor.glb` | 3D 醫師模型（ReadyPlayerMe）|
 
-根目錄的 `*_SETUP*.md`、`*_GUIDE.md`、`ASSISTANTS_API_PLAN.md` 等是歷史設定文件，
-只在處理對應主題（TTS/Redis/Assistants 設定）時才讀。
+根目錄除 `README.md` 與本檔外的其餘 .md（SETUP、GUIDE、PLAN、OPTIMIZATION、
+IMPROVEMENTS 類）皆為歷史設定文件，只在處理對應主題（TTS/Redis/Assistants
+設定）時才讀。
 
 ## 技術地雷（改相關程式前必讀）
 - 3D 模型是 ReadyPlayerMe GLB，骨骼用 quaternion 旋轉，**不可用 euler 覆蓋手臂**（會破壞姿勢）。

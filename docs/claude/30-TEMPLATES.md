@@ -12,7 +12,7 @@
 若失敗：回嘗試過什麼、卡在哪、錯誤訊息原文，不要假裝成功。
 ```
 
-## T1. 搜尋／理解（subagent_type: Explore，唯讀）
+## T1. 搜尋／理解（subagent_type: Explore——搜尋用，不做編輯）
 ```
 背景：iNephro 是腎臟科衛教網站（React 19 + Vite，api/ 是 Vercel functions）。
 我正在【要做的事】，需要先搞清楚【目標機制】。

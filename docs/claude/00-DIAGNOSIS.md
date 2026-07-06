@@ -30,8 +30,8 @@ presenter mode、醫療安全 guardrails（P0）、`api/_shared/security.js`、
 1. CLAUDE.md 不再寫會腐化的行數與細節，只寫穩定事實 + 路由（見新版）。
 2. 動任何檔案前，先 `git log --oneline -5 -- <該檔案>` 看它最近被誰為何改過。
 3. 每個做了實質變更的 session 結束前，必須更新 CLAUDE.md 的「目前狀態」
-   區段（格式見 `40-MAINTENANCE.md`）。做不到就在 commit message 寫明
-   「未更新進度」。
+   區段（格式見 `40-MAINTENANCE.md`）。這是硬規則；唯一例外是 session 被
+   強制中斷來不及更新，此時下一個 session 開場發現進度落後，有責任先補記。
 
 ## 失效模式 #3：委派無合約、驗收靠自驗（最容易出錯）
 
